@@ -16,8 +16,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
 
+  const token = adminToken();
+  if (!token) {
+    // Unreachable while isValidPassword fails closed, but keeps the types
+    // honest and guarantees we never set an empty cookie.
+    return NextResponse.json({ error: "Admin is not configured" }, { status: 503 });
+  }
+
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(ADMIN_COOKIE, adminToken(), {
+  response.cookies.set(ADMIN_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

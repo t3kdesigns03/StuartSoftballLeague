@@ -5,6 +5,13 @@
 [build.environment]
   NODE_VERSION = "22"
 
+  # NEXT_PUBLIC_* values are inlined into the client bundle by design — the
+  # browser cannot talk to Supabase without them. Netlify's secret scanner
+  # flags any env var it finds in build output, so these two are declared
+  # intentionally public. ADMIN_PASSWORD is deliberately NOT listed: it is
+  # server-only, and if it ever shows up in the bundle the build should fail.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+
 # Runs Next.js SSR + route handlers on Netlify Functions.
 [[plugins]]
   package = "@netlify/plugin-nextjs"
