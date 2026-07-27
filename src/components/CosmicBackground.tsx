@@ -1,109 +1,115 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
-const STAR_TILE_W = 1600;
-const STAR_TILE_H = 1200;
+import { useEffect, useRef, useState } from "react";
 
 /**
- * Three *identical* tiles stacked vertically, scrolled by exactly one tile
- * height. Identical tiles are what makes the loop seamless — when the animation
- * resets, tile 2 sits precisely where tile 1 was. Three of them (rather than
- * two) means the viewport stays covered on screens up to 2400px tall.
+ * Star tile size in CSS pixels. The tile is repeated by CSS on *both* axes, so
+ * this does not need to cover the viewport — it only controls how often the
+ * pattern repeats. The drift animation moves by exactly this distance, which is
+ * what makes the loop seamless.
  */
-const STAR_TILES = [0, 1, 2];
+const STAR_TILE = 1000;
+
+/** Backing-store multiplier. Stars are soft glows, so 1.5x is plenty. */
+const STAR_DPR = 1.5;
 
 /**
  * Fixed, non-interactive atmosphere layer: nebula glows, a drifting starfield,
- * and distant orbs that parallax gently with the pointer.
+ * and distant orbs that parallax gently.
  *
- * Performance notes:
- *  - The starfield is painted once into two stacked canvases at mount, then
- *    animated with a CSS transform only (compositor work, no per-frame JS).
- *  - Parallax writes two CSS custom properties inside a single rAF, and is
- *    skipped entirely on touch devices and under prefers-reduced-motion.
- *  - Parallax and float live on separate elements so their transforms compose
- *    instead of overwriting each other.
+ * Memory: the starfield is painted once into a single offscreen canvas, handed
+ * to the compositor as one repeating background image, and the canvas is thrown
+ * away. That is ~9 MB of bitmap. An earlier version stacked three full-width
+ * canvases in the DOM and cost ~92 MB, which is enough to get a tab evicted on
+ * a mid-range phone.
+ *
+ * Motion: drift and float are pure CSS transforms (compositor-only, no
+ * per-frame JS). Parallax writes two CSS custom properties inside a single rAF.
+ * Pointer devices drive it from the cursor; touch devices drive it from scroll.
+ * Both are disabled under prefers-reduced-motion.
  */
 export function CosmicBackground() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+  const [starsUrl, setStarsUrl] = useState<string | null>(null);
 
-  // Paint the starfield once into every tile.
+  // Paint the star tile once, hand it over as an object URL, drop the canvas.
   useEffect(() => {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const canvas = document.createElement("canvas");
+    canvas.width = STAR_TILE * STAR_DPR;
+    canvas.height = STAR_TILE * STAR_DPR;
 
-    const paint = (canvas: HTMLCanvasElement | null, seed: number) => {
-      if (!canvas) return;
-      canvas.width = STAR_TILE_W * dpr;
-      canvas.height = STAR_TILE_H * dpr;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.scale(dpr, dpr);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(STAR_DPR, STAR_DPR);
 
-      const TINTS = [
-        "255,255,255",
-        "255,255,255",
-        "200,240,255",
-        "0,240,255",
-        "255,0,170",
-        "176,0,255",
-        "240,255,0",
-      ];
+    const TINTS = [
+      "255,255,255",
+      "255,255,255",
+      "200,240,255",
+      "0,240,255",
+      "255,0,170",
+      "176,0,255",
+      "240,255,0",
+    ];
 
-      // Deterministic per-tile PRNG so the two tiles differ but stay stable.
-      let s = seed;
-      const rand = () => {
-        s = (s * 1664525 + 1013904223) % 4294967296;
-        return s / 4294967296;
-      };
-
-      for (let i = 0; i < 340; i++) {
-        const x = rand() * STAR_TILE_W;
-        const y = rand() * STAR_TILE_H;
-        const r = rand() * 1.5 + 0.35;
-        const tint = TINTS[Math.floor(rand() * TINTS.length)];
-        const alpha = rand() * 0.7 + 0.25;
-
-        if (r > 1.15) {
-          const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 7);
-          glow.addColorStop(0, `rgba(${tint},${alpha * 0.5})`);
-          glow.addColorStop(1, `rgba(${tint},0)`);
-          ctx.fillStyle = glow;
-          ctx.beginPath();
-          ctx.arc(x, y, r * 7, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        ctx.fillStyle = `rgba(${tint},${alpha})`;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
+    // Deterministic PRNG so the sky is identical between server and client
+    // renders and between reloads.
+    let s = 20260721;
+    const rand = () => {
+      s = (s * 1664525 + 1013904223) % 4294967296;
+      return s / 4294967296;
     };
 
-    // Same seed for every tile — identical tiles are what makes the loop seamless.
-    canvasRefs.current.forEach((canvas) => paint(canvas, 20260721));
+    for (let i = 0; i < 230; i++) {
+      const x = rand() * STAR_TILE;
+      const y = rand() * STAR_TILE;
+      const r = rand() * 1.5 + 0.35;
+      const tint = TINTS[Math.floor(rand() * TINTS.length)];
+      const alpha = rand() * 0.7 + 0.25;
+
+      if (r > 1.15) {
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 7);
+        glow.addColorStop(0, `rgba(${tint},${alpha * 0.5})`);
+        glow.addColorStop(1, `rgba(${tint},0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = `rgba(${tint},${alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    let url: string | null = null;
+    let cancelled = false;
+
+    // toBlob encodes off the main thread in most browsers, unlike toDataURL.
+    canvas.toBlob((blob) => {
+      if (!blob || cancelled) return;
+      url = URL.createObjectURL(blob);
+      setStarsUrl(url);
+    }, "image/png");
+
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
   }, []);
 
-  // Pointer parallax.
+  // Parallax: cursor on pointer devices, scroll on touch devices.
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    if (
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      !window.matchMedia("(pointer: fine)").matches
-    ) {
-      return;
-    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     let frame = 0;
     let tx = 0;
     let ty = 0;
 
-    const onMove = (event: PointerEvent) => {
-      tx = (event.clientX / window.innerWidth - 0.5) * 2;
-      ty = (event.clientY / window.innerHeight - 0.5) * 2;
+    const commit = () => {
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
@@ -112,9 +118,35 @@ export function CosmicBackground() {
       });
     };
 
-    window.addEventListener("pointermove", onMove, { passive: true });
+    const onPointerMove = (event: PointerEvent) => {
+      tx = (event.clientX / window.innerWidth - 0.5) * 2;
+      ty = (event.clientY / window.innerHeight - 0.5) * 2;
+      commit();
+    };
+
+    // Touch has no cursor, so scroll position drives the depth instead: the
+    // orbs slide as you move down the page.
+    const onScroll = () => {
+      const max = Math.max(
+        1,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      ty = (Math.min(window.scrollY, max) / max - 0.5) * 2;
+      tx = ty * 0.35;
+      commit();
+    };
+
+    const fine = window.matchMedia("(pointer: fine)").matches;
+    if (fine) {
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+    } else {
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+    }
+
     return () => {
-      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("scroll", onScroll);
       if (frame) cancelAnimationFrame(frame);
     };
   }, []);
@@ -124,6 +156,7 @@ export function CosmicBackground() {
       ref={rootRef}
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden [--px:0] [--py:0]"
+      style={{ ["--star-tile" as string]: `${STAR_TILE}px` }}
     >
       {/* Base wash: near-black into deep indigo */}
       <div className="absolute inset-0 bg-[linear-gradient(180deg,#05050f_0%,#0a0a1a_36%,#130b2c_70%,#05050f_100%)]" />
@@ -154,23 +187,24 @@ export function CosmicBackground() {
         }}
       />
 
-      {/* Drifting starfield: identical stacked tiles scrolling as one seamless loop */}
-      <div className="absolute inset-0">
+      {/*
+        Drifting starfield. One repeating background image on one element that
+        overhangs the viewport by exactly one tile, so translating up by one
+        tile always leaves the screen covered and lands the pattern back on
+        itself.
+      */}
+      {starsUrl && (
         <div
-          className="absolute top-0 left-1/2 -translate-x-1/2"
-          style={{ animation: "drift 110s linear infinite" }}
-        >
-          {STAR_TILES.map((tile) => (
-            <canvas
-              key={tile}
-              ref={(node) => {
-                canvasRefs.current[tile] = node;
-              }}
-              className="block h-[1200px] w-[1600px] max-w-none"
-            />
-          ))}
-        </div>
-      </div>
+          className="absolute inset-x-0 top-0 h-[calc(100%+var(--star-tile))]"
+          style={{
+            backgroundImage: `url(${starsUrl})`,
+            backgroundRepeat: "repeat",
+            backgroundSize: `${STAR_TILE}px ${STAR_TILE}px`,
+            animation: "drift 110s linear infinite",
+            willChange: "transform",
+          }}
+        />
+      )}
 
       {/* Distant planets / floating softballs */}
       <Orb

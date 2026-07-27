@@ -138,14 +138,15 @@ body {
   }
 }
 
-/* Scroll distance must equal exactly one star tile height (see
-   CosmicBackground.tsx) or the loop will visibly jump. */
+/* Scrolls by exactly one star tile so the repeating pattern lands back on
+   itself. --star-tile is set by CosmicBackground.tsx, so the two can't drift
+   out of sync. */
 @keyframes drift {
   0% {
     transform: translate3d(0, 0, 0);
   }
   100% {
-    transform: translate3d(0, -1200px, 0);
+    transform: translate3d(0, calc(-1 * var(--star-tile, 1000px)), 0);
   }
 }
 
