@@ -1,73 +1,126 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   Stuart Softball League '26 — cosmic sandlot theme
+   Dark only. Neon on near-black.
+   ========================================================================== */
+
 @theme {
-  /* Field greens */
-  --color-field-50: #f0fdf4;
-  --color-field-100: #dcfce7;
-  --color-field-200: #bbf7d0;
-  --color-field-300: #86efac;
-  --color-field-400: #4ade80;
-  --color-field-500: #22c55e;
-  --color-field-600: #16a34a;
-  --color-field-700: #15803d;
-  --color-field-800: #166534;
-  --color-field-900: #14532d;
+  /* --- Space --- */
+  --color-void-950: #05050f;
+  --color-void-900: #0a0a1a;
+  --color-void-850: #0e0e24;
+  --color-void-800: #14142e;
+  --color-void-700: #1e1e42;
 
-  /* Softball yellows */
-  --color-sun-50: #fefce8;
-  --color-sun-100: #fef9c3;
-  --color-sun-200: #fef08a;
-  --color-sun-300: #fde047;
-  --color-sun-400: #facc15;
-  --color-sun-500: #eab308;
-  --color-sun-600: #ca8a04;
-  --color-sun-700: #a16207;
+  /* --- Neon --- */
+  --color-neon-cyan: #00f0ff;
+  --color-neon-magenta: #ff00aa;
+  --color-neon-purple: #b000ff;
+  --color-neon-yellow: #f0ff00;
+  --color-neon-green: #39ff14;
 
-  /* System font stack — no external fetch, so builds never fail on a font CDN.
-     To use a Google font instead, add it via next/font/google in layout.tsx
-     and put its CSS variable at the front of this list. */
+  /* --- Text --- */
+  --color-starlight: #e8f6ff;
+  --color-starlight-dim: #9fb3cc;
+  --color-starlight-faint: #6b7f99;
+
   --font-display:
-    ui-rounded, "SF Pro Rounded", "Segoe UI Variable Display", "Segoe UI",
-    system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    "Bahnschrift", "DIN Alternate", "Oswald", ui-sans-serif,
+    "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --radius-blob: 1.75rem;
 }
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
 
 html {
   -webkit-text-size-adjust: 100%;
+  color-scheme: dark;
+  background-color: var(--color-void-950);
 }
 
 body {
-  background:
-    radial-gradient(
-      ellipse 80% 50% at 50% -10%,
-      var(--color-field-100),
-      transparent
-    ),
-    radial-gradient(
-      ellipse 60% 40% at 90% 5%,
-      var(--color-sun-100),
-      transparent
-    ),
-    #ffffff;
-  background-attachment: fixed;
+  background-color: var(--color-void-950);
+  color: var(--color-starlight);
   min-height: 100vh;
-  color: var(--color-field-900);
+  overflow-x: hidden;
 }
 
-/* Respect users who prefer less motion. */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+::selection {
+  background: color-mix(in srgb, var(--color-neon-cyan) 35%, transparent);
+  color: #fff;
+}
+
+/* Neon-tinted scrollbar */
+* {
+  scrollbar-color: var(--color-void-700) transparent;
+  scrollbar-width: thin;
+}
+
+/* --------------------------------------------------------------------------
+   Utilities
+   -------------------------------------------------------------------------- */
+
+@utility text-glow-title {
+  background-image: linear-gradient(
+    100deg,
+    #00f0ff 0%,
+    #6ad9ff 22%,
+    #b000ff 55%,
+    #ff00aa 82%,
+    #ff6ad5 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgba(0, 240, 255, 0.45))
+    drop-shadow(0 0 42px rgba(176, 0, 255, 0.35));
+}
+
+/* Frosted dark panel with a faint neon rim. */
+@utility glass-panel {
+  position: relative;
+  background: linear-gradient(
+    160deg,
+    rgba(20, 20, 46, 0.72) 0%,
+    rgba(10, 10, 26, 0.66) 100%
+  );
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(0, 240, 255, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 18px 48px -18px rgba(0, 0, 0, 0.9),
+    0 0 44px -22px rgba(0, 240, 255, 0.5);
+  transition:
+    border-color 0.35s ease,
+    box-shadow 0.35s ease,
+    transform 0.35s ease;
+}
+
+@utility glass-panel-hover {
+  &:hover {
+    border-color: rgba(0, 240, 255, 0.34);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+      0 1px 0 rgba(255, 255, 255, 0.08) inset,
+      0 24px 60px -20px rgba(0, 0, 0, 0.95),
+      0 0 70px -20px rgba(0, 240, 255, 0.55);
   }
 }
+
+/* --------------------------------------------------------------------------
+   Keyframes
+   -------------------------------------------------------------------------- */
 
 @keyframes pop-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: translateY(10px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -75,6 +128,67 @@ body {
   }
 }
 
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(3deg);
+  }
+}
+
+/* Scroll distance must equal exactly one star tile height (see
+   CosmicBackground.tsx) or the loop will visibly jump. */
+@keyframes drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, -1200px, 0);
+  }
+}
+
+@keyframes nebula-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes sweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
 .animate-pop-in {
-  animation: pop-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: pop-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Accessibility — kill all ambient motion for those who ask for it
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -4,18 +4,24 @@ import type { Team } from "@/lib/types";
 
 const THEME = {
   green: {
-    card: "border-field-200 bg-field-50/60",
-    title: "text-field-900",
-    chip: "bg-field-600 text-white",
-    row: "border-field-100 bg-white",
-    captainRow: "border-field-300 bg-field-100/70",
+    border: "border-neon-cyan/35",
+    shell: "shadow-[0_0_60px_-24px_rgba(0,240,255,0.95)]",
+    title: "text-neon-cyan drop-shadow-[0_0_16px_rgba(0,240,255,0.65)]",
+    chip: "bg-neon-cyan/12 text-neon-cyan border-neon-cyan/45 shadow-[0_0_20px_-6px_rgba(0,240,255,0.9)]",
+    row: "border-white/8 bg-white/[0.03]",
+    captainRow:
+      "border-neon-cyan/55 bg-neon-cyan/10 shadow-[0_0_28px_-10px_rgba(0,240,255,0.95)]",
+    wash: "radial-gradient(ellipse at 50% 0%, rgba(0,240,255,0.16) 0%, transparent 62%)",
   },
   yellow: {
-    card: "border-sun-200 bg-sun-50/60",
-    title: "text-sun-700",
-    chip: "bg-sun-500 text-white",
-    row: "border-sun-100 bg-white",
-    captainRow: "border-sun-300 bg-sun-100/70",
+    border: "border-neon-magenta/35",
+    shell: "shadow-[0_0_60px_-24px_rgba(255,0,170,0.95)]",
+    title: "text-neon-magenta drop-shadow-[0_0_16px_rgba(255,0,170,0.65)]",
+    chip: "bg-neon-magenta/12 text-neon-magenta border-neon-magenta/45 shadow-[0_0_20px_-6px_rgba(255,0,170,0.9)]",
+    row: "border-white/8 bg-white/[0.03]",
+    captainRow:
+      "border-neon-magenta/55 bg-neon-magenta/10 shadow-[0_0_28px_-10px_rgba(255,0,170,0.95)]",
+    wash: "radial-gradient(ellipse at 50% 0%, rgba(255,0,170,0.16) 0%, transparent 62%)",
   },
 } as const;
 
@@ -24,46 +30,62 @@ export function TeamCard({ team }: { team: Team }) {
   const { guys, girls } = countByGender(team.players);
 
   return (
-    <section className={`animate-pop-in rounded-3xl border-2 p-5 shadow-lg shadow-black/5 sm:p-6 ${theme.card}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className={`text-xl font-extrabold sm:text-2xl ${theme.title}`}>
-          {team.name}
-        </h3>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-bold tabular-nums ${theme.chip}`}
-        >
-          {team.players.length}
-        </span>
-      </div>
-      <p className="text-field-700/70 mt-1 text-sm font-medium">
-        {guys} {guys === 1 ? "guy" : "guys"} · {girls}{" "}
-        {girls === 1 ? "girl" : "girls"}
-      </p>
+    <section
+      className={`glass-panel rounded-blob animate-pop-in relative overflow-hidden border-2 p-5 sm:p-6 ${theme.border} ${theme.shell}`}
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{ background: theme.wash }}
+      />
 
-      <ul className="mt-4 space-y-2">
-        {team.players.map((player) => {
-          const isCaptain = player.id === team.captain.id;
-          return (
-            <li
-              key={player.id}
-              className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 ${
-                isCaptain ? theme.captainRow : theme.row
-              }`}
-            >
-              <span className="text-field-900 min-w-0 flex-1 truncate font-semibold">
-                {player.name}
-              </span>
-              {isCaptain && (
-                <span className="shrink-0 text-sm font-bold" title="Captain">
-                  <span aria-hidden="true">⭐</span>
-                  <span className="sr-only">Captain</span>
+      <div className="relative">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3
+            className={`text-xl font-black tracking-wide uppercase sm:text-2xl ${theme.title}`}
+          >
+            {team.name}
+          </h3>
+          <span
+            className={`rounded-full border px-3 py-1 text-sm font-black tabular-nums ${theme.chip}`}
+          >
+            {team.players.length}
+          </span>
+        </div>
+
+        <p className="text-starlight-faint mt-1.5 text-xs font-bold tracking-[0.16em] uppercase">
+          {guys} {guys === 1 ? "guy" : "guys"} · {girls}{" "}
+          {girls === 1 ? "girl" : "girls"}
+        </p>
+
+        <ul className="mt-5 space-y-2.5">
+          {team.players.map((player) => {
+            const isCaptain = player.id === team.captain.id;
+            return (
+              <li
+                key={player.id}
+                className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 transition-colors duration-300 ${
+                  isCaptain ? theme.captainRow : theme.row
+                }`}
+              >
+                <span className="text-starlight min-w-0 flex-1 truncate font-bold">
+                  {player.name}
                 </span>
-              )}
-              <GenderBadge gender={player.gender} />
-            </li>
-          );
-        })}
-      </ul>
+                {isCaptain && (
+                  <span
+                    className="shrink-0 text-sm drop-shadow-[0_0_10px_rgba(240,255,0,0.95)]"
+                    title="Captain"
+                  >
+                    <span aria-hidden="true">⭐</span>
+                    <span className="sr-only">Captain</span>
+                  </span>
+                )}
+                <GenderBadge gender={player.gender} />
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }

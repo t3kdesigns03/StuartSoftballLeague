@@ -32,16 +32,16 @@ export function AdminLogin() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-12 sm:px-6">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-14 sm:px-6">
       <Header subtitle="Commissioner access" />
 
       <form
         onSubmit={handleSubmit}
-        className="border-field-100 shadow-field-900/5 mt-8 rounded-3xl border bg-white/85 p-6 shadow-lg backdrop-blur sm:p-7"
+        className="glass-panel glass-panel-hover rounded-blob mt-9 p-6 sm:p-7"
       >
         <label
           htmlFor="password"
-          className="text-field-800 block text-sm font-semibold"
+          className="text-starlight-dim block text-xs font-bold tracking-[0.2em] uppercase"
         >
           Admin password
         </label>
@@ -51,13 +51,13 @@ export function AdminLogin() {
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="border-field-200 focus:border-field-500 focus:ring-field-400/40 mt-1.5 w-full rounded-xl border bg-white px-4 py-3 text-base outline-none transition focus:ring-4"
+          className="text-starlight focus:border-neon-purple/70 focus:shadow-[0_0_0_4px_rgba(176,0,255,0.16),0_0_28px_-8px_rgba(176,0,255,0.9)] mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3.5 text-base outline-none transition duration-300"
         />
 
         {error && (
           <p
             role="alert"
-            className="mt-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700"
+            className="mt-4 rounded-xl border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300"
           >
             {error}
           </p>
@@ -66,7 +66,12 @@ export function AdminLogin() {
         <button
           type="submit"
           disabled={busy}
-          className="from-field-500 to-field-600 shadow-field-600/25 hover:to-field-700 mt-5 w-full rounded-xl bg-gradient-to-b px-4 py-3.5 text-base font-bold text-white shadow-lg transition disabled:opacity-60"
+          className="mt-6 w-full rounded-xl px-4 py-4 text-base font-black tracking-[0.14em] text-white uppercase transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-45"
+          style={{
+            background: "linear-gradient(100deg, #b000ff 0%, #ff00aa 100%)",
+            boxShadow:
+              "0 0 34px -8px rgba(176,0,255,0.9), 0 10px 30px -12px rgba(255,0,170,0.75)",
+          }}
         >
           {busy ? "Checking…" : "Unlock"}
         </button>
