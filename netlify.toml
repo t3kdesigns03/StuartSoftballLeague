@@ -10,6 +10,13 @@
   # flags any env var it finds in build output, so these two are declared
   # intentionally public. ADMIN_PASSWORD is deliberately NOT listed: it is
   # server-only, and if it ever shows up in the bundle the build should fail.
+  #
+  # CAVEAT: this omission is by KEY NAME, not by value. It tells Netlify to stop
+  # looking at whatever is stored under these names — so if a privileged key is
+  # ever pasted into one of them, the scanner stays quiet. That has happened
+  # once already. src/lib/supabase.ts therefore validates the key's shape at
+  # build time and refuses to compile on a secret / service_role key. Do not
+  # remove that check while this omission is in place.
   SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
 
 # Runs Next.js SSR + route handlers on Netlify Functions.

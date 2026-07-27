@@ -193,6 +193,24 @@ it that way.
 Also keep real values out of `.env.local.example` — the scanner reads committed
 files, not just build output.
 
+> **The omission is by key *name*, not by value.** It silences the scanner for
+> whatever happens to be stored under those names. If a privileged key is pasted
+> into `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, Netlify will not warn you.
+>
+> This is not hypothetical — it happened on the first production deploy. A
+> `sb_secret_...` key went into that variable, shipped to every visitor in the
+> JS bundle, and the build was green. The only symptom was a 401 on the realtime
+> socket.
+>
+> `src/lib/supabase.ts` now validates the key's shape and throws at build time
+> on a `sb_secret_...` key or a JWT decoding to `service_role`. That check is the
+> compensating control for the scanner omission. Don't delete one without the
+> other.
+
+**If a secret key ever reaches the bundle:** revoke it in Supabase first — it is
+public the moment it is served, and rotating is the only fix. Replacing the env
+var and redeploying does not un-publish it.
+
 ---
 
 ## Weekly routine
