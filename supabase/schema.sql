@@ -306,7 +306,13 @@ create policy "published draws are readable by anyone"
 -- partner_name is included: it is needed to compute pairs at draw time, and it
 -- is information the person typed about themselves publicly. Payment status
 -- still never appears here.
-create or replace view public.signups_public as
+-- Dropped rather than CREATE OR REPLACE'd: replace can only *append* columns to
+-- an existing view, so adding partner_name in the middle of the list is read as
+-- renaming an existing column and fails with 42P16. Dropping first makes the
+-- column order free to change on any future edit too.
+drop view if exists public.signups_public;
+
+create view public.signups_public as
   select s.id,
          s.week_id,
          s.created_at,
