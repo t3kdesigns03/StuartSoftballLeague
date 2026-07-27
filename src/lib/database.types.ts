@@ -1,35 +1,59 @@
 import type { Gender } from "@/lib/types";
 
 /**
- * Minimal hand-written typing for the `signups` table.
+ * Hand-written typing for the tables and views this app touches.
  *
- * If the schema grows, regenerate this with:
+ * If the schema grows, regenerate with:
  *   npx supabase gen types typescript --project-id <ref> > src/lib/database.types.ts
  */
 export type Database = {
   public: {
     Tables: {
-      signups: {
+      players: {
         Row: {
           id: string;
           name: string;
           gender: Gender;
+          paid: boolean;
+          paid_at: string | null;
           created_at: string;
-          week_id: string;
         };
         Insert: {
           id?: string;
           name: string;
           gender: Gender;
+          paid?: boolean;
+          paid_at?: string | null;
           created_at?: string;
-          week_id: string;
         };
         Update: {
           id?: string;
           name?: string;
           gender?: Gender;
+          paid?: boolean;
+          paid_at?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      signups: {
+        Row: {
+          id: string;
+          player_id: string;
+          week_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          player_id: string;
+          week_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          player_id?: string;
           week_id?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -40,8 +64,27 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Views: {
+      /** signups joined to players — names without exposing payment status. */
+      signups_public: {
+        Row: {
+          id: string;
+          week_id: string;
+          created_at: string;
+          player_id: string;
+          name: string;
+          gender: Gender;
+        };
+        Relationships: [];
+      };
+    };
+    Functions: {
+      /** Find-or-create the player, then record their check-in for the open week. */
+      check_in: {
+        Args: { p_name: string; p_gender: Gender };
+        Returns: undefined;
+      };
+    };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;
   };

@@ -54,17 +54,16 @@ export function SignupForm({ weekId, onSignedUp }: Props) {
     if (!weekId) return setError("Still loading — try again in a second.");
 
     setStatus("saving");
-    const { error: insertError } = await supabase
-      .from("signups")
-      .insert({ name: trimmed, gender, week_id: weekId });
+    // check_in() finds-or-creates the roster entry and records this week's
+    // check-in in one atomic step. Checking in twice is a no-op, not an error.
+    const { error: rpcError } = await supabase.rpc("check_in", {
+      p_name: trimmed,
+      p_gender: gender,
+    });
 
-    if (insertError) {
+    if (rpcError) {
       setStatus("idle");
-      setError(
-        insertError.code === "23505"
-          ? "Looks like that name is already signed up this week."
-          : "Could not save your signup. Please try again.",
-      );
+      setError("Could not save your check-in. Please try again.");
       return;
     }
 

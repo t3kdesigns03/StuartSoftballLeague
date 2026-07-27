@@ -19,9 +19,11 @@ export function useSignups() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (week: string) => {
+    // Read through the view: it joins names on for us without exposing the
+    // roster table (and therefore without exposing payment status).
     const { data, error: fetchError } = await supabase
-      .from("signups")
-      .select("*")
+      .from("signups_public")
+      .select("id, player_id, name, gender, week_id, created_at")
       .eq("week_id", week)
       .order("created_at", { ascending: true });
 

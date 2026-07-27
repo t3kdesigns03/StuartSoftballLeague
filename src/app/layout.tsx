@@ -4,10 +4,40 @@ import { CosmicBackground } from "@/components/CosmicBackground";
 
 import "./globals.css";
 
+const SITE_URL = "https://ssl.t3kdesigns.app";
+const DESCRIPTION =
+  "Check in for this week's Stuart Softball League game. Coed sandlot Tuesdays at 6:30, under the stars.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Stuart Softball League '26",
-  description:
-    "Sign up for this week's Stuart Softball League game. Coed sandlot Tuesdays under the stars.",
+  description: DESCRIPTION,
+  applicationName: "Stuart Softball League '26",
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    siteName: "Stuart Softball League '26",
+    title: "Stuart Softball League '26",
+    description: DESCRIPTION,
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Stuart Softball League '26 — coed sandlot Tuesdays at 6:30 PM",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Stuart Softball League '26",
+    description: DESCRIPTION,
+    images: ["/og-image.jpg"],
+  },
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

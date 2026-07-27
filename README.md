@@ -1,6 +1,6 @@
 # Stuart Softball League '26
 
-Weekly signup + random team generator for an adult coed softball league.
+Weekly check-in + random team generator for an adult coed softball league.
 Players add their name through Monday; the commissioner draws two balanced
 teams for Tuesday's games.
 
@@ -27,11 +27,19 @@ re-run. This creates:
 
 | Table | Purpose |
 | --- | --- |
-| `signups` | One row per player per week (`id`, `name`, `gender`, `created_at`, `week_id`) |
+| `players` | **Permanent roster.** One row per human, ever. Holds the one-time season fee status (`paid`, `paid_at`). Never cleared by a week reset. |
+| `signups` | Weekly check-in. One row per player per week, referencing `players`. |
 | `league_state` | Single row tracking which `week_id` is currently open |
 
-It also enables Row Level Security, adds the policies the app needs, and turns
-on realtime for both tables.
+It also enables Row Level Security, adds the policies and grants the app needs,
+creates the `check_in()` function and `signups_public` view, and turns on
+realtime.
+
+Running this on a database that still has the original single-table layout is
+safe: existing signups are migrated into the roster rather than dropped, and
+duplicate spellings of one person (`"casey Brooks"` / `"Casey Brooks"` /
+`"  casey brooks "`) collapse into a single roster entry. The earliest spelling
+wins, so fix any capitalisation directly in the `players` table afterwards.
 
 ### 3. Environment variables
 
@@ -45,9 +53,8 @@ Fill in from **Supabase → Settings → API Keys**:
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL, e.g. `https://xxxx.supabase.co` (no trailing path) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | The **publishable** (anon) key — safe in the browser |
+| `SUPABASE_SECRET_KEY` | The **secret** key. Server-only — the admin roster and payment tracking bypass RLS. Note the deliberate absence of a `NEXT_PUBLIC_` prefix: that prefix is what inlines a value into the browser bundle. |
 | `ADMIN_PASSWORD` | Whatever you want to gate `/admin` with. **Required** — if unset, `/admin` locks itself and logs an error. There is no fallback default. |
-
-> The **secret** / `service_role` key is not used anywhere in this app. Don't add it.
 
 > If your password contains `$`, quote it in `.env.local` (`ADMIN_PASSWORD='p$ss'`).
 > `.env` files expand `$VAR` references, so an unquoted `$` can silently change
@@ -84,12 +91,23 @@ leave the teams two players apart.
 Re-running "Generate teams" re-draws from scratch — teams are not stored in the
 database, so a re-draw is free.
 
+### Season dues
+
+The $20 fee is one-time, so `paid` lives on `players`, not on the weekly
+check-in. Marking someone paid persists for the season and survives every week
+reset. There is no online payment — the admin toggle is a manual ledger of who
+has handed over cash.
+
+The roster is permanent: everyone who has ever checked in stays listed, with a
+count of weeks played. That is also what future history (teams, W/L, scores)
+will hang off.
+
 ### Weeks
 
-`league_state.current_week_id` decides which `week_id` new signups get.
+`league_state.current_week_id` decides which `week_id` new check-ins get.
 **Start new week** rolls that value forward; it does **not** delete anything, so
-past weeks stay in `signups` as history. Every open browser picks up the change
-over realtime and clears its list without a refresh.
+past weeks stay in `signups` as history and the roster is untouched. Every open
+browser picks up the change over realtime and clears its list without a refresh.
 
 To look at past weeks:
 
@@ -107,9 +125,20 @@ itself never reaches the browser, and changing the env var invalidates all
 existing sessions.
 
 This is deliberately lightweight. It keeps casual visitors out of the admin
-page; it is not a hardened auth system. Note that RLS lets anyone holding the
-publishable key insert a signup or roll the week — fine for a rec league, but
-worth knowing.
+page; it is not a hardened auth system.
+
+**What the browser can and cannot do.** Anonymous visitors may read `signups`
+(ids only), read `league_state`, read names through the `signups_public` view,
+and call `check_in()`. They have no access to `players` at all — payment status
+is neither readable nor writable from the browser. Rolling the week and toggling
+payment go through `/api/admin/*`, which check the admin cookie and use the
+secret key server-side.
+
+`players` is protected twice over: RLS has no anon policy, *and* the grant is
+explicitly revoked. Supabase grants `anon` SELECT on everything in `public` by
+default, so without that revoke, disabling RLS on the table for even a moment
+would expose the roster. Both locks are in `schema.sql`; don't remove one
+assuming the other has it covered.
 
 ---
 
@@ -121,10 +150,13 @@ src/
 │   ├── page.tsx                    Public signup page
 │   ├── admin/page.tsx              Admin page (renders login or dashboard)
 │   ├── api/admin/login/route.ts    Password check, sets/clears the cookie
+│   ├── api/admin/players/route.ts  Roster read + paid toggle (admin only)
+│   ├── api/admin/week/route.ts     Start a new week (admin only)
 │   ├── layout.tsx
-│   └── globals.css                 Tailwind theme: field greens + softball yellows
+│   └── globals.css                 Tailwind theme: cosmic neon tokens
 ├── components/
-│   ├── SignupForm.tsx              Name + gender form
+│   ├── SignupForm.tsx              Name + gender check-in form
+│   ├── PaymentRoster.tsx           Permanent roster + season dues toggles
 │   ├── SignupList.tsx              Live "this week's signups" list
 │   ├── AdminDashboard.tsx          Generate teams / start new week
 │   ├── AdminLogin.tsx              Password gate
@@ -136,6 +168,7 @@ src/
 │   └── useSignups.ts               Fetch + realtime subscription
 └── lib/
     ├── supabase.ts                 Browser client (publishable key)
+    ├── supabaseAdmin.ts            Server-only client (secret key)
     ├── teams.ts                    Shuffle + balanced deal + captains
     ├── week.ts                     Current week / start new week
     ├── adminAuth.ts                Cookie + password verification
@@ -166,9 +199,9 @@ neither team is empty.
 1. Push to <https://github.com/t3kdesigns03/StuartSoftballLeague>
 2. In Netlify: **Add new site → Import an existing project**, pick the repo.
    `netlify.toml` supplies the build command and the Next.js plugin.
-3. **Site configuration → Environment variables** — add all three:
+3. **Site configuration → Environment variables** — add all four:
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
-   `ADMIN_PASSWORD`. **Check the spelling carefully** — a typo'd key is not an
+   `SUPABASE_SECRET_KEY`, `ADMIN_PASSWORD`. **Check the spelling carefully** — a typo'd key is not an
    error, it just makes the variable undefined, and `/admin` will lock itself.
    (The two `NEXT_PUBLIC_*` values are inlined at build time, so redeploy after
    changing them. `ADMIN_PASSWORD` is read per-request and takes effect

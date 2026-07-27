@@ -13,7 +13,10 @@ export function Header({ subtitle }: { subtitle?: string }) {
             animation: "nebula-breathe 7s ease-in-out infinite",
           }}
         />
-        <SoftballIcon className="animate-float-slow h-16 w-16 drop-shadow-[0_0_18px_rgba(240,255,0,0.55)] sm:h-20 sm:w-20" />
+        <SoftballIcon
+          priority
+          className="animate-float-slow h-16 w-16 drop-shadow-[0_0_18px_rgba(240,255,0,0.55)] sm:h-20 sm:w-20"
+        />
       </div>
 
       <div>

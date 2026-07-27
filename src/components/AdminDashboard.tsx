@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { GenderBadge } from "@/components/GenderBadge";
 import { Header } from "@/components/Header";
+import { PaymentRoster } from "@/components/PaymentRoster";
 import { TeamCard } from "@/components/TeamCard";
 import { useSignups } from "@/hooks/useSignups";
 import { generateTeams } from "@/lib/teams";
@@ -168,6 +169,8 @@ export function AdminDashboard() {
           </ul>
         </section>
       )}
+
+      <PaymentRoster />
 
       <footer className="mt-14 text-center">
         <Link
