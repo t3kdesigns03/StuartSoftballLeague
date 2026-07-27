@@ -36,3 +36,39 @@ export const GENDER_LABELS: Record<Gender, string> = {
 
 /** One-time season fee, in whole dollars. From the flyer. */
 export const SEASON_FEE = 20;
+
+/**
+ * A team as stored in team_draws.teams — a snapshot, names included, so the
+ * public page can render it without any access to the roster table.
+ */
+export type PublishedTeam = {
+  name: string;
+  color: Team["color"];
+  captain_id: string;
+  players: { id: string; name: string; gender: Gender }[];
+};
+
+/** The published draw for one week. The "final say". */
+export type TeamDraw = {
+  week_id: string;
+  teams: [PublishedTeam, PublishedTeam];
+  drawn_at: string;
+  published: boolean;
+  published_at: string | null;
+};
+
+/** Convert an in-memory draw into the snapshot shape we persist. */
+export function toPublishedTeams(
+  teams: [Team, Team],
+): [PublishedTeam, PublishedTeam] {
+  return teams.map((team) => ({
+    name: team.name,
+    color: team.color,
+    captain_id: team.captain.player_id,
+    players: team.players.map((p) => ({
+      id: p.player_id,
+      name: p.name,
+      gender: p.gender,
+    })),
+  })) as [PublishedTeam, PublishedTeam];
+}

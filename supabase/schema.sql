@@ -134,6 +134,51 @@ create trigger league_state_touch
   for each row execute function public.touch_league_state();
 
 -- ---------------------------------------------------------------------------
+-- team_draws — the published teams for a week. The "final say".
+--
+-- One row per week. Generating teams on the admin page is free and changes
+-- nothing here; only pressing Publish writes a row. Unpublishing flips the flag
+-- rather than deleting, so the draw is still there if you change your mind.
+--
+-- `teams` is a snapshot (names included, not just ids) so the public page can
+-- render it without any access to the roster table, and so history stays
+-- accurate if someone is later renamed.
+--
+-- Shape:
+--   [{ "name": "Team Green", "color": "green", "captain_id": "<uuid>",
+--      "players": [{ "id": "<uuid>", "name": "...", "gender": "guy" }, ...] }, ...]
+--
+-- score_a / score_b are unused for now — room for W/L history later.
+-- ---------------------------------------------------------------------------
+create table if not exists public.team_draws (
+  week_id      text        primary key,
+  teams        jsonb       not null,
+  drawn_at     timestamptz not null default now(),
+  published    boolean     not null default false,
+  published_at timestamptz,
+  score_a      integer,
+  score_b      integer,
+  constraint team_draws_two_teams check (jsonb_array_length(teams) = 2)
+);
+
+create or replace function public.sync_published_at()
+returns trigger language plpgsql as $$
+begin
+  if new.published and not coalesce(old.published, false) then
+    new.published_at := now();
+  elsif not new.published then
+    new.published_at := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists team_draws_sync_published_at on public.team_draws;
+create trigger team_draws_sync_published_at
+  before insert or update of published on public.team_draws
+  for each row execute function public.sync_published_at();
+
+-- ---------------------------------------------------------------------------
 -- check_in() — the only write the public page is allowed to make
 --
 -- Find-or-create the player, then record their check-in for the open week.
@@ -191,6 +236,7 @@ grant execute on function public.check_in(text, text) to anon, authenticated;
 alter table public.players      enable row level security;
 alter table public.signups      enable row level security;
 alter table public.league_state enable row level security;
+alter table public.team_draws   enable row level security;
 
 -- Explicit table grants. Supabase grants anon SELECT on everything in `public`
 -- by default, which would include the roster; RLS is what actually stops that
@@ -202,6 +248,7 @@ revoke all on public.players from anon, authenticated;
 
 grant select on public.signups      to anon, authenticated;
 grant select on public.league_state to anon, authenticated;
+grant select on public.team_draws   to anon, authenticated;
 
 -- players: deliberately no anon policies. RLS denies by default.
 drop policy if exists "anyone can add a signup"    on public.signups;
@@ -215,6 +262,14 @@ create policy "league state is readable by anyone"
 
 -- Rolling the week is an admin action now; it goes through the server route.
 drop policy if exists "anyone can roll the week" on public.league_state;
+
+-- Draws are visible only once published. An unpublished draw — one the admin
+-- has saved but not released — stays invisible to the browser.
+drop policy if exists "published draws are readable by anyone" on public.team_draws;
+create policy "published draws are readable by anyone"
+  on public.team_draws for select
+  to anon, authenticated
+  using (published = true);
 
 -- ---------------------------------------------------------------------------
 -- signups_public — names for the public "this week" list, without exposing
@@ -245,4 +300,8 @@ exception when duplicate_object then null; end $$;
 
 do $$ begin
   alter publication supabase_realtime add table public.league_state;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.team_draws;
 exception when duplicate_object then null; end $$;

@@ -2,33 +2,86 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { GenderBadge } from "@/components/GenderBadge";
 import { Header } from "@/components/Header";
 import { PaymentRoster } from "@/components/PaymentRoster";
 import { TeamCard } from "@/components/TeamCard";
 import { useSignups } from "@/hooks/useSignups";
+import { useTeamDraw } from "@/hooks/useTeamDraw";
+import { formatCountdown, isPastCutoff, minutesToCutoff } from "@/lib/cutoff";
 import { generateTeams } from "@/lib/teams";
 import type { Team } from "@/lib/types";
+import { toPublishedTeams } from "@/lib/types";
 import { startNewWeek } from "@/lib/week";
 
 export function AdminDashboard() {
   const router = useRouter();
   const { weekId, setWeekId, signups, loading, error } = useSignups();
+  const { draw, reload: reloadDraw } = useTeamDraw(weekId);
   const [teams, setTeams] = useState<[Team, Team] | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Soft deadline, refreshed each minute. Drives emphasis only — nothing locks.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const pastCutoff = isPastCutoff(now);
+  const countdown = formatCountdown(minutesToCutoff(now));
+
+  const isLive = Boolean(draw?.published);
 
   function handleGenerate() {
     const result = generateTeams(signups);
     if (!result) {
-      setNotice("Need at least 2 players signed up to make teams.");
+      setNotice("Need at least 2 players checked in to make teams.");
       return;
     }
     setNotice(null);
     setTeams(result);
+  }
+
+  async function handlePublish() {
+    if (!teams || !weekId) return;
+    setPublishing(true);
+    try {
+      const response = await fetch("/api/admin/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ week_id: weekId, teams: toPublishedTeams(teams) }),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      reloadDraw();
+      setNotice("Teams are live on the public page.");
+    } catch {
+      setNotice("Could not publish teams. Please try again.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function handleUnpublish() {
+    if (!weekId) return;
+    setPublishing(true);
+    try {
+      const response = await fetch(
+        `/api/admin/teams?week_id=${encodeURIComponent(weekId)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) throw new Error(String(response.status));
+      reloadDraw();
+      setNotice("Teams pulled from the public page.");
+    } catch {
+      setNotice("Could not retract teams. Please try again.");
+    } finally {
+      setPublishing(false);
+    }
   }
 
   async function handleNewWeek() {
@@ -72,6 +125,21 @@ export function AdminDashboard() {
             </h2>
             <p className="text-starlight-faint mt-1 font-mono text-[0.7rem] tracking-wider">
               week: {weekId ?? "…"}
+            </p>
+            <p className="mt-1.5 text-[0.68rem] font-black tracking-[0.16em] uppercase">
+              {isLive ? (
+                <span className="text-neon-green drop-shadow-[0_0_10px_rgba(57,255,20,0.6)]">
+                  ● Teams are live
+                </span>
+              ) : pastCutoff ? (
+                <span className="text-neon-yellow drop-shadow-[0_0_10px_rgba(240,255,0,0.6)]">
+                  Check-in closed · time to draw
+                </span>
+              ) : (
+                <span className="text-starlight-faint">
+                  Check-in closes in {countdown}
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -139,9 +207,72 @@ export function AdminDashboard() {
       </div>
 
       {teams && (
-        <div className="mt-6 grid gap-5 sm:gap-6 md:grid-cols-2">
-          <TeamCard team={teams[0]} />
-          <TeamCard team={teams[1]} />
+        <>
+          <div className="mt-6 grid gap-5 sm:gap-6 md:grid-cols-2">
+            <TeamCard team={teams[0]} />
+            <TeamCard team={teams[1]} />
+          </div>
+
+          <div className="glass-panel rounded-blob mt-5 p-5 sm:p-6">
+            <p className="text-starlight-dim text-sm">
+              {isLive
+                ? "A draw is already live. Publishing again replaces it."
+                : "Nothing is public until you publish. Re-draw as many times as you like first."}
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={handlePublish}
+                disabled={publishing}
+                className={`flex-1 rounded-xl px-4 py-4 text-base font-black tracking-[0.14em] uppercase transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 ${
+                  pastCutoff ? "text-black" : "text-black"
+                }`}
+                style={{
+                  background: pastCutoff
+                    ? "linear-gradient(100deg, #f0ff00 0%, #39ff14 100%)"
+                    : "linear-gradient(100deg, #39ff14 0%, #00f0ff 100%)",
+                  boxShadow: pastCutoff
+                    ? "0 0 40px -6px rgba(240,255,0,0.9), 0 10px 30px -12px rgba(57,255,20,0.8)"
+                    : "0 0 34px -8px rgba(57,255,20,0.85), 0 10px 30px -12px rgba(0,240,255,0.7)",
+                }}
+              >
+                {publishing
+                  ? "Publishing…"
+                  : pastCutoff
+                    ? "★ Publish final teams ★"
+                    : isLive
+                      ? "Replace published teams"
+                      : "Publish to main page"}
+              </button>
+
+              {isLive && (
+                <button
+                  onClick={handleUnpublish}
+                  disabled={publishing}
+                  className="text-starlight-dim rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-4 text-base font-bold tracking-[0.12em] uppercase transition-all duration-300 hover:border-white/25 disabled:opacity-50"
+                >
+                  Pull it down
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {!teams && isLive && draw && (
+        <div className="glass-panel rounded-blob mt-6 p-5 sm:p-6">
+          <p className="text-neon-green text-sm font-bold">
+            ● Teams for this week are live on the public page.
+          </p>
+          <p className="text-starlight-faint mt-1 text-xs">
+            Generate again above to re-draw and replace them.
+          </p>
+          <button
+            onClick={handleUnpublish}
+            disabled={publishing}
+            className="text-starlight-dim mt-4 rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-3 text-sm font-bold tracking-[0.12em] uppercase transition-all duration-300 hover:border-white/25 disabled:opacity-50"
+          >
+            Pull it down
+          </button>
         </div>
       )}
 

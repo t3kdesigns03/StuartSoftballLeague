@@ -4,8 +4,8 @@ Weekly check-in + random team generator for an adult coed softball league.
 Players add their name through Monday; the commissioner draws two balanced
 teams for Tuesday's games.
 
-- **Public page** (`/`) — signup form and a live list of who's playing
-- **Admin page** (`/admin`) — password protected; generates teams, starts a new week
+- **Public page** (`/`) — check-in form, live list of who's playing, countdown to the draw, and the published teams once they're up
+- **Admin page** (`/admin`) — password protected; draws and publishes teams, tracks season dues, starts a new week
 
 Built with Next.js 15 (App Router), TypeScript, Tailwind CSS v4, and Supabase.
 
@@ -29,6 +29,7 @@ re-run. This creates:
 | --- | --- |
 | `players` | **Permanent roster.** One row per human, ever. Holds the one-time season fee status (`paid`, `paid_at`). Never cleared by a week reset. |
 | `signups` | Weekly check-in. One row per player per week, referencing `players`. |
+| `team_draws` | The published draw for a week. Visible publicly only when `published` is true. |
 | `league_state` | Single row tracking which `week_id` is currently open |
 
 It also enables Row Level Security, adds the policies and grants the app needs,
@@ -88,8 +89,39 @@ keeps **both** the gender split and the total roster size balanced to within one
 player. Without that carry-over, two odd lists can both favour the same side and
 leave the teams two players apart.
 
-Re-running "Generate teams" re-draws from scratch — teams are not stored in the
-database, so a re-draw is free.
+Re-running "Generate teams" re-draws from scratch and stores nothing, so a
+re-draw is free.
+
+### Publishing the draw
+
+Generating is private. Nothing reaches the public page until you press
+**Publish**, which writes the draw to `team_draws` as this week's final say. The
+public page picks it up over realtime — no refresh needed.
+
+- One row per week, upserted, so re-drawing and publishing again replaces the
+  previous post rather than stacking up.
+- **Pull it down** flips `published` to false rather than deleting, so the draw
+  survives if you change your mind.
+- RLS only returns rows where `published = true`. An unpublished draw is
+  invisible to the browser, not merely hidden by the UI.
+- The stored `teams` value is a *snapshot* including names, so the public page
+  renders it without any access to the roster table.
+
+`score_a` / `score_b` exist on the table and are unused — room for W/L history.
+
+### The Monday 6 PM cutoff
+
+`src/lib/cutoff.ts` computes time until Monday 18:00 in `America/Chicago`,
+handling CDT/CST automatically.
+
+It is a **soft** deadline and deliberately locks nothing. Past the cutoff the
+admin's publish button changes to "★ Publish final teams ★" and the public
+countdown says the draw is imminent — but check-in stays open and you can
+publish whenever you like. A hard lock would mean a wrong clock or a bad
+timezone could leave you unable to post teams on game night.
+
+The public page shows a live countdown to the draw, which is replaced by the
+teams themselves once published.
 
 ### Season dues
 
@@ -151,12 +183,16 @@ src/
 │   ├── admin/page.tsx              Admin page (renders login or dashboard)
 │   ├── api/admin/login/route.ts    Password check, sets/clears the cookie
 │   ├── api/admin/players/route.ts  Roster read + paid toggle (admin only)
+│   ├── api/admin/teams/route.ts    Publish / retract the draw (admin only)
 │   ├── api/admin/week/route.ts     Start a new week (admin only)
 │   ├── layout.tsx
 │   └── globals.css                 Tailwind theme: cosmic neon tokens
 ├── components/
 │   ├── SignupForm.tsx              Name + gender check-in form
 │   ├── PaymentRoster.tsx           Permanent roster + season dues toggles
+│   ├── FinalDraw.tsx               Published teams on the public page
+│   ├── PublishedTeamCard.tsx       One persisted team snapshot
+│   ├── DrawCountdown.tsx           Public countdown to the Monday draw
 │   ├── SignupList.tsx              Live "this week's signups" list
 │   ├── AdminDashboard.tsx          Generate teams / start new week
 │   ├── AdminLogin.tsx              Password gate
@@ -165,12 +201,14 @@ src/
 │   ├── Header.tsx
 │   └── SoftballIcon.tsx
 ├── hooks/
-│   └── useSignups.ts               Fetch + realtime subscription
+│   ├── useSignups.ts               Fetch + realtime subscription
+│   └── useTeamDraw.ts              Published draw + realtime subscription
 └── lib/
     ├── supabase.ts                 Browser client (publishable key)
     ├── supabaseAdmin.ts            Server-only client (secret key)
     ├── teams.ts                    Shuffle + balanced deal + captains
     ├── week.ts                     Current week / start new week
+    ├── cutoff.ts                   Monday 6 PM soft deadline (America/Chicago)
     ├── adminAuth.ts                Cookie + password verification
     ├── types.ts
     └── database.types.ts

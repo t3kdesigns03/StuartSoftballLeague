@@ -1,4 +1,4 @@
-import type { Gender } from "@/lib/types";
+import type { Gender, PublishedTeam } from "@/lib/types";
 
 /**
  * Hand-written typing for the tables and views this app touches.
@@ -61,6 +61,36 @@ export type Database = {
         Row: { id: number; current_week_id: string; updated_at: string };
         Insert: { id?: number; current_week_id: string; updated_at?: string };
         Update: { id?: number; current_week_id?: string; updated_at?: string };
+        Relationships: [];
+      };
+      team_draws: {
+        Row: {
+          week_id: string;
+          teams: PublishedTeam[];
+          drawn_at: string;
+          published: boolean;
+          published_at: string | null;
+          score_a: number | null;
+          score_b: number | null;
+        };
+        Insert: {
+          week_id: string;
+          teams: PublishedTeam[];
+          drawn_at?: string;
+          published?: boolean;
+          published_at?: string | null;
+          score_a?: number | null;
+          score_b?: number | null;
+        };
+        Update: {
+          week_id?: string;
+          teams?: PublishedTeam[];
+          drawn_at?: string;
+          published?: boolean;
+          published_at?: string | null;
+          score_a?: number | null;
+          score_b?: number | null;
+        };
         Relationships: [];
       };
     };
