@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  /* Field greens */
+  --color-field-50: #f0fdf4;
+  --color-field-100: #dcfce7;
+  --color-field-200: #bbf7d0;
+  --color-field-300: #86efac;
+  --color-field-400: #4ade80;
+  --color-field-500: #22c55e;
+  --color-field-600: #16a34a;
+  --color-field-700: #15803d;
+  --color-field-800: #166534;
+  --color-field-900: #14532d;
+
+  /* Softball yellows */
+  --color-sun-50: #fefce8;
+  --color-sun-100: #fef9c3;
+  --color-sun-200: #fef08a;
+  --color-sun-300: #fde047;
+  --color-sun-400: #facc15;
+  --color-sun-500: #eab308;
+  --color-sun-600: #ca8a04;
+  --color-sun-700: #a16207;
+
+  /* System font stack — no external fetch, so builds never fail on a font CDN.
+     To use a Google font instead, add it via next/font/google in layout.tsx
+     and put its CSS variable at the front of this list. */
+  --font-display:
+    ui-rounded, "SF Pro Rounded", "Segoe UI Variable Display", "Segoe UI",
+    system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      var(--color-field-100),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 90% 5%,
+      var(--color-sun-100),
+      transparent
+    ),
+    #ffffff;
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: var(--color-field-900);
+}
+
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
