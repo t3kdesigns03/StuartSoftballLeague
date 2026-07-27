@@ -21,9 +21,15 @@ export function useSignups() {
   const refresh = useCallback(async (week: string) => {
     // Read through the view: it joins names on for us without exposing the
     // roster table (and therefore without exposing payment status).
+    //
+    // Deliberately `select("*")` rather than naming columns. Naming a column
+    // the view does not have yet makes PostgREST reject the whole query with a
+    // 400, which blanks the list entirely — so a deploy that lands before its
+    // migration takes the page down. With `*` we get whatever columns exist and
+    // simply treat the missing ones as absent.
     const { data, error: fetchError } = await supabase
       .from("signups_public")
-      .select("id, player_id, name, gender, week_id, created_at, partner_name")
+      .select("*")
       .eq("week_id", week)
       .order("created_at", { ascending: true });
 
@@ -32,7 +38,13 @@ export function useSignups() {
       return;
     }
     setError(null);
-    setSignups((data ?? []) as Signup[]);
+    setSignups(
+      (data ?? []).map((row) => ({
+        ...(row as Signup),
+        // Absent until the partner-pairing migration has run.
+        partner_name: (row as Partial<Signup>).partner_name ?? null,
+      })),
+    );
   }, []);
 
   // Resolve the current week, then watch for the admin rolling it over.

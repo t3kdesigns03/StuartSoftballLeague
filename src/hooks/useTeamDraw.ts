@@ -16,12 +16,24 @@ export function useTeamDraw(weekId: string | null) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async (week: string) => {
+    // `select("*")` for the same reason as useSignups: naming a column that
+    // does not exist yet 400s the whole query, so a deploy landing ahead of its
+    // migration would break the page rather than simply showing no draw.
     const { data } = await supabase
       .from("team_draws")
-      .select("week_id, teams, drawn_at, published, published_at, score_a, score_b")
+      .select("*")
       .eq("week_id", week)
       .maybeSingle();
-    setDraw((data as TeamDraw | null) ?? null);
+
+    setDraw(
+      data
+        ? {
+            ...(data as TeamDraw),
+            score_a: (data as Partial<TeamDraw>).score_a ?? null,
+            score_b: (data as Partial<TeamDraw>).score_b ?? null,
+          }
+        : null,
+    );
   }, []);
 
   useEffect(() => {
