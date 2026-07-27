@@ -70,8 +70,8 @@ export function DrawCountdown({ checkedIn }: { checkedIn: number }) {
           "Nobody checked in yet"
         ) : (
           <>
-            <span className="text-neon-cyan">{checkedIn}</span> in the hat · red
-            rover draft Monday 6 PM
+            <span className="text-neon-cyan">{checkedIn}</span> in the hat ·
+            red rover draft Tuesday noon
           </>
         )}
       </p>

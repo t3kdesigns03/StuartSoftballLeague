@@ -42,18 +42,21 @@ export type Database = {
           player_id: string;
           week_id: string;
           created_at: string;
+          partner_name: string | null;
         };
         Insert: {
           id?: string;
           player_id: string;
           week_id: string;
           created_at?: string;
+          partner_name?: string | null;
         };
         Update: {
           id?: string;
           player_id?: string;
           week_id?: string;
           created_at?: string;
+          partner_name?: string | null;
         };
         Relationships: [];
       };
@@ -102,6 +105,7 @@ export type Database = {
           week_id: string;
           created_at: string;
           player_id: string;
+          partner_name: string | null;
           name: string;
           gender: Gender;
         };
@@ -111,7 +115,7 @@ export type Database = {
     Functions: {
       /** Find-or-create the player, then record their check-in for the open week. */
       check_in: {
-        Args: { p_name: string; p_gender: Gender };
+        Args: { p_name: string; p_gender: Gender; p_partner?: string | null };
         Returns: undefined;
       };
     };

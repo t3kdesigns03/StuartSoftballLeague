@@ -1,3 +1,4 @@
+import { BattingOrder } from "@/components/BattingOrder";
 import { GenderBadge } from "@/components/GenderBadge";
 import type { PublishedTeam } from "@/lib/types";
 
@@ -29,6 +30,12 @@ export function PublishedTeamCard({ team }: { team: PublishedTeam }) {
   const theme = THEME[team.color];
   const guys = team.players.filter((p) => p.gender === "guy").length;
   const girls = team.players.length - guys;
+
+  // Draws published before batting orders existed have no batting_order key.
+  const byId = new Map(team.players.map((p) => [p.id, p]));
+  const batters = (team.batting_order ?? [])
+    .map((id) => byId.get(id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   return (
     <section
@@ -86,6 +93,11 @@ export function PublishedTeamCard({ team }: { team: PublishedTeam }) {
             );
           })}
         </ul>
+
+        <BattingOrder
+          batters={batters}
+          accent={team.color === "green" ? "cyan" : "magenta"}
+        />
       </div>
     </section>
   );

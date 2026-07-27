@@ -1,5 +1,6 @@
 /**
- * Check-in cutoff: Monday 6:00 PM, league local time.
+ * Check-in cutoff: Tuesday 12:00 PM, league local time — game day, a few hours
+ * before first pitch at 6:30.
  *
  * This is a *soft* deadline. Nothing is locked when it passes — the admin can
  * still draw and publish whenever they like, and stragglers can still check in.
@@ -8,8 +9,9 @@
  */
 
 export const LEAGUE_TIMEZONE = "America/Chicago";
-const CUTOFF_DAY = 1; // Monday
-const CUTOFF_HOUR = 18; // 18:00
+export const CUTOFF_LABEL = "Tuesday 12 PM";
+const CUTOFF_DAY = 2; // Tuesday
+const CUTOFF_HOUR = 12; // 12:00 noon
 
 /** Wall-clock parts of `date` as seen in the league's timezone. */
 function leagueParts(date: Date) {
@@ -40,17 +42,19 @@ export function minutesToCutoff(now = new Date()): number {
   const nowMin = day * 1440 + hour * 60 + minute;
   const cutMin = CUTOFF_DAY * 1440 + CUTOFF_HOUR * 60;
 
-  // The game week runs Monday 18:00 -> next Monday 18:00. Tuesday through
-  // Sunday are "after this week's cutoff", counting down to the next one.
+  // The week runs Tuesday noon -> next Tuesday noon. Past this week's cutoff we
+  // roll forward and count down to the next one.
   const delta = cutMin - nowMin;
   return delta >= 0 ? delta : delta + 7 * 1440;
 }
 
-/** True between Monday 18:00 and Tuesday's game — time to post the final draw. */
+/**
+ * True from Tuesday noon until the end of game day — time to post the draw.
+ * Wednesday onward is a fresh week counting down to the next Tuesday.
+ */
 export function isPastCutoff(now = new Date()): boolean {
   const { day, hour } = leagueParts(now);
-  if (day === CUTOFF_DAY) return hour >= CUTOFF_HOUR;
-  return day === 2; // Tuesday — game day
+  return day === CUTOFF_DAY && hour >= CUTOFF_HOUR;
 }
 
 /** "2d 4h", "3h 20m", "45m" — how long check-in stays open. */

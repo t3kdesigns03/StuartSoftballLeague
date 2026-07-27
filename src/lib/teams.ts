@@ -1,4 +1,4 @@
-import type { Signup, Team } from "@/lib/types";
+import type { Gender, Signup, Team } from "@/lib/types";
 
 /**
  * Fisher-Yates shuffle. Returns a new array; does not mutate the input.
@@ -12,43 +12,128 @@ export function shuffle<T>(items: readonly T[]): T[] {
   return result;
 }
 
+const key = (name: string) => name.trim().toLowerCase();
+
 /**
- * Split signups into exactly two gender-balanced teams.
- *
- * 1. Separate guys and girls
- * 2. Shuffle each list independently
- * 3. Deal alternately into Team A / Team B
- * 4. Pick a random captain on each team
- *
- * Dealing each gender separately keeps the guy/girl split even (within one
- * player). To also keep the *total* roster sizes even, the deal carries its
- * parity from one gender to the next: if the guys list is odd and Team A takes
- * the extra guy, the girls deal starts on Team B so the extra girl balances it
- * out. Without that carry-over, two odd lists could both favour the same side
- * and leave the teams two players apart.
- *
- * The very first side is chosen at random so Team A is not systematically
- * favoured.
- *
- * Returns null if there are fewer than 2 players — you cannot field two teams.
+ * A unit that must be dealt to one team as a block: either a single player, or
+ * a couple who asked to stay together.
  */
-export function generateTeams(signups: readonly Signup[]): [Team, Team] | null {
+type Unit = {
+  players: Signup[];
+  guys: number;
+  girls: number;
+};
+
+/**
+ * Group the week's check-ins into dealable units.
+ *
+ * A pair forms when **both** people named each other. One-sided requests are
+ * ignored — if Alex says "Jamie" but Jamie names nobody (or names someone
+ * else), Alex is dealt as a single. Requiring mutual consent avoids one person
+ * dragging another onto a team, and avoids chains where A→B and B→C would
+ * otherwise glue three or more people together.
+ */
+export function buildUnits(signups: readonly Signup[]): Unit[] {
+  const byName = new Map<string, Signup>();
+  for (const s of signups) byName.set(key(s.name), s);
+
+  const paired = new Set<string>();
+  const units: Unit[] = [];
+
+  for (const person of signups) {
+    const me = key(person.name);
+    if (paired.has(me)) continue;
+    if (!person.partner_name) continue;
+
+    const other = byName.get(key(person.partner_name));
+    if (!other || paired.has(key(other.name))) continue;
+    if (key(other.name) === me) continue;
+
+    // Mutual? The other person must name us back.
+    if (!other.partner_name || key(other.partner_name) !== me) continue;
+
+    paired.add(me);
+    paired.add(key(other.name));
+    units.push(makeUnit([person, other]));
+  }
+
+  for (const person of signups) {
+    if (paired.has(key(person.name))) continue;
+    units.push(makeUnit([person]));
+  }
+
+  return units;
+}
+
+function makeUnit(players: Signup[]): Unit {
+  return {
+    players,
+    guys: players.filter((p) => p.gender === "guy").length,
+    girls: players.filter((p) => p.gender === "girl").length,
+  };
+}
+
+/** How lopsided a draw came out — surfaced so the admin can re-draw. */
+export type DrawBalance = {
+  sizeGap: number;
+  guyGap: number;
+  girlGap: number;
+  /** True when pairing forced a split worse than the usual within-one. */
+  lopsided: boolean;
+  pairsKept: number;
+};
+
+/**
+ * Split the week's check-ins into exactly two teams.
+ *
+ * Couples who asked to stay together are never split — that is the promise on
+ * the flyer — so they are dealt as blocks first, largest first, each going to
+ * whichever side is currently lighter. Singles are then dealt by gender to
+ * even things out, which is what recovers the balance pairs may have skewed.
+ *
+ * With only single players this reduces to the original behaviour: teams even
+ * within one player, and each gender even within one.
+ *
+ * Returns null if there are fewer than 2 players.
+ */
+export function generateTeams(
+  signups: readonly Signup[],
+): [Team, Team] | null {
   if (signups.length < 2) return null;
 
   const rosters: [Signup[], Signup[]] = [[], []];
-  let offset = Math.random() < 0.5 ? 0 : 1;
+  const units = buildUnits(signups);
+  const pairs = units.filter((u) => u.players.length > 1);
+  const singles = units.filter((u) => u.players.length === 1);
 
-  for (const gender of ["guy", "girl"] as const) {
-    const pool = shuffle(signups.filter((s) => s.gender === gender));
-    pool.forEach((player, index) => {
-      rosters[(index + offset) % 2].push(player);
-    });
-    // Carry the parity forward so an odd pool flips the next pool's start.
-    offset = (offset + pool.length) % 2;
+  // --- couples first, biggest imbalance first, to the lighter side ----------
+  for (const unit of shuffle(pairs)) {
+    const side = rosters[0].length <= rosters[1].length ? 0 : 1;
+    rosters[side].push(...unit.players);
   }
 
-  // Guard against a lopsided edge case: if one side ended up empty (e.g. two
-  // players of different genders both dealt to the same side), move one over.
+  // --- then singles, per gender, to whichever side has fewer of that gender -
+  for (const gender of ["guy", "girl"] as const) {
+    const pool = shuffle(
+      singles.filter((u) => u.players[0].gender === gender).map((u) => u.players[0]),
+    );
+    for (const player of pool) {
+      const a = rosters[0].filter((p) => p.gender === gender).length;
+      const b = rosters[1].filter((p) => p.gender === gender).length;
+      let side: 0 | 1;
+      if (a !== b) {
+        side = a < b ? 0 : 1;
+      } else if (rosters[0].length !== rosters[1].length) {
+        side = rosters[0].length < rosters[1].length ? 0 : 1;
+      } else {
+        side = Math.random() < 0.5 ? 0 : 1;
+      }
+      rosters[side].push(player);
+    }
+  }
+
+  // A team can only be empty if every unit landed on one side — possible with
+  // a single couple and nobody else. Move one player across so there is a game.
   if (rosters[0].length === 0) rosters[0].push(rosters[1].pop() as Signup);
   if (rosters[1].length === 0) rosters[1].push(rosters[0].pop() as Signup);
 
@@ -58,12 +143,40 @@ export function generateTeams(signups: readonly Signup[]): [Team, Team] | null {
   ];
 }
 
+export function countByGender(players: readonly Signup[]) {
+  const guys = players.filter((p) => p.gender === "guy").length;
+  return { guys, girls: players.length - guys };
+}
+
+/** Describe how even a finished draw is. */
+export function describeBalance(
+  teams: [Team, Team],
+  signups: readonly Signup[],
+): DrawBalance {
+  const [a, b] = teams;
+  const g = (t: Team, gender: Gender) =>
+    t.players.filter((p) => p.gender === gender).length;
+
+  const sizeGap = Math.abs(a.players.length - b.players.length);
+  const guyGap = Math.abs(g(a, "guy") - g(b, "guy"));
+  const girlGap = Math.abs(g(a, "girl") - g(b, "girl"));
+
+  return {
+    sizeGap,
+    guyGap,
+    girlGap,
+    lopsided: sizeGap > 1 || guyGap > 1 || girlGap > 1,
+    pairsKept: buildUnits(signups).filter((u) => u.players.length > 1).length,
+  };
+}
+
 function buildTeam(name: string, color: Team["color"], players: Signup[]): Team {
   const captain = players[Math.floor(Math.random() * players.length)];
   return {
     name,
     color,
     captain,
+    battingOrder: battingOrder(players),
     // Captain first, then everyone else alphabetically.
     players: [
       captain,
@@ -74,9 +187,39 @@ function buildTeam(name: string, color: Team["color"], players: Signup[]): Team 
   };
 }
 
-export function countByGender(players: readonly Signup[]) {
-  return {
-    guys: players.filter((p) => p.gender === "guy").length,
-    girls: players.filter((p) => p.gender === "girl").length,
-  };
+/**
+ * Suggested batting order: alternate guy/girl as much as the roster allows.
+ *
+ * League rule 11 asks the order to alternate "as much as possible". When one
+ * gender outnumbers the other you cannot alternate the whole way, so the
+ * minority gender is spread as evenly as possible through the majority — that
+ * is the arrangement with the fewest same-gender neighbours available. With
+ * 7 guys and 3 girls you get G-B-B-G-B-B-G-B-B-B rather than all three girls
+ * bunched at one end.
+ */
+export function battingOrder(players: readonly Signup[]): Signup[] {
+  const guys = shuffle(players.filter((p) => p.gender === "guy"));
+  const girls = shuffle(players.filter((p) => p.gender === "girl"));
+
+  const [majority, minority] =
+    guys.length >= girls.length ? [guys, girls] : [girls, guys];
+
+  if (minority.length === 0) return majority;
+
+  // Drop the minority into evenly spaced slots among the majority.
+  const order: Signup[] = [];
+  const gaps = minority.length + 1;
+  const base = Math.floor(majority.length / gaps);
+  let extra = majority.length % gaps;
+
+  let m = 0;
+  for (let i = 0; i < minority.length; i++) {
+    const take = base + (extra > 0 ? 1 : 0);
+    if (extra > 0) extra--;
+    for (let k = 0; k < take; k++) order.push(majority[m++]);
+    order.push(minority[i]);
+  }
+  while (m < majority.length) order.push(majority[m++]);
+
+  return order;
 }

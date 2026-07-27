@@ -2,7 +2,7 @@
 
 import { GenderBadge } from "@/components/GenderBadge";
 import { SoftballIcon } from "@/components/SoftballIcon";
-import { countByGender } from "@/lib/teams";
+import { buildUnits, countByGender } from "@/lib/teams";
 import type { Signup } from "@/lib/types";
 
 type Props = {
@@ -13,6 +13,13 @@ type Props = {
 
 export function SignupList({ signups, loading, error }: Props) {
   const { guys, girls } = countByGender(signups);
+
+  // Only mutually-confirmed pairs count — a one-sided request is not a pair.
+  const pairedIds = new Set(
+    buildUnits(signups)
+      .filter((u) => u.players.length > 1)
+      .flatMap((u) => u.players.map((p) => p.id)),
+  );
 
   return (
     <section
@@ -91,6 +98,17 @@ export function SignupList({ signups, loading, error }: Props) {
                 <span className="text-starlight min-w-0 flex-1 truncate font-bold">
                   {signup.name}
                 </span>
+                {pairedIds.has(signup.id) && (
+                  <span
+                    className="text-neon-purple shrink-0 text-sm drop-shadow-[0_0_8px_rgba(176,0,255,0.9)]"
+                    title="Paired — staying with their partner"
+                  >
+                    <span aria-hidden="true">🔗</span>
+                    <span className="sr-only">
+                      Paired with their partner
+                    </span>
+                  </span>
+                )}
                 <GenderBadge gender={signup.gender} />
               </li>
             ))}

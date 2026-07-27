@@ -1,5 +1,5 @@
+import { BattingOrder } from "@/components/BattingOrder";
 import { GenderBadge } from "@/components/GenderBadge";
-import { countByGender } from "@/lib/teams";
 import type { Team } from "@/lib/types";
 
 const THEME = {
@@ -27,7 +27,8 @@ const THEME = {
 
 export function TeamCard({ team }: { team: Team }) {
   const theme = THEME[team.color];
-  const { guys, girls } = countByGender(team.players);
+  const guys = team.players.filter((p) => p.gender === "guy").length;
+  const girls = team.players.length - guys;
 
   return (
     <section
@@ -85,6 +86,15 @@ export function TeamCard({ team }: { team: Team }) {
             );
           })}
         </ul>
+
+        <BattingOrder
+          batters={team.battingOrder.map((p) => ({
+            id: p.player_id,
+            name: p.name,
+            gender: p.gender,
+          }))}
+          accent={team.color === "green" ? "cyan" : "magenta"}
+        />
       </div>
     </section>
   );

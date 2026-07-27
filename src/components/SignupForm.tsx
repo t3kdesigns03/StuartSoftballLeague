@@ -39,6 +39,8 @@ const GENDER_OPTIONS: {
 export function SignupForm({ weekId, onSignedUp }: Props) {
   const [name, setName] = useState("");
   const [gender, setGender] = useState<Gender | null>(null);
+  const [withPartner, setWithPartner] = useState(false);
+  const [partner, setPartner] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -49,16 +51,25 @@ export function SignupForm({ weekId, onSignedUp }: Props) {
     setError(null);
 
     const trimmed = name.trim();
+    const partnerName = partner.trim();
     if (!trimmed) return setError("Please enter your name.");
     if (!gender) return setError("Please pick Guy or Girl.");
+    if (withPartner && !partnerName) {
+      return setError("Add your partner's name, or untick the box.");
+    }
+    if (withPartner && partnerName.toLowerCase() === trimmed.toLowerCase()) {
+      return setError("That's your own name — enter your partner's.");
+    }
     if (!weekId) return setError("Still loading — try again in a second.");
 
     setStatus("saving");
     // check_in() finds-or-creates the roster entry and records this week's
-    // check-in in one atomic step. Checking in twice is a no-op, not an error.
+    // check-in in one step. Checking in twice updates rather than erroring, so
+    // people can fix a typo by submitting again.
     const { error: rpcError } = await supabase.rpc("check_in", {
       p_name: trimmed,
       p_gender: gender,
+      p_partner: withPartner ? partnerName : null,
     });
 
     if (rpcError) {
@@ -70,6 +81,8 @@ export function SignupForm({ weekId, onSignedUp }: Props) {
     setStatus("done");
     setName("");
     setGender(null);
+    setWithPartner(false);
+    setPartner("");
     onSignedUp?.();
     setTimeout(() => setStatus("idle"), 2600);
   }
@@ -137,6 +150,65 @@ export function SignupForm({ weekId, onSignedUp }: Props) {
             })}
           </div>
         </fieldset>
+
+        {/* Optional partner pairing */}
+        <div>
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={withPartner}
+            onClick={() => setWithPartner((v) => !v)}
+            className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-300 ${
+              withPartner
+                ? "border-neon-purple bg-neon-purple/10 shadow-[0_0_26px_-8px_rgba(176,0,255,0.95)]"
+                : "hover:border-neon-purple/45 border-white/10 bg-white/[0.03]"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 text-xs font-black transition-all duration-300 ${
+                withPartner
+                  ? "border-neon-purple bg-neon-purple text-white"
+                  : "border-white/25"
+              }`}
+            >
+              {withPartner ? "✓" : ""}
+            </span>
+            <span
+              className={`text-sm font-bold ${
+                withPartner ? "text-neon-purple" : "text-starlight-dim"
+              }`}
+            >
+              Keep me on the same team as my partner
+            </span>
+          </button>
+
+          {withPartner && (
+            <div className="animate-pop-in mt-3">
+              <label
+                htmlFor="partner"
+                className="text-starlight-dim block text-xs font-bold tracking-[0.2em] uppercase"
+              >
+                Partner&rsquo;s full name
+              </label>
+              <input
+                id="partner"
+                name="partner"
+                type="text"
+                autoComplete="off"
+                maxLength={60}
+                value={partner}
+                onChange={(e) => setPartner(e.target.value)}
+                placeholder="Casey Rivera"
+                className="text-starlight placeholder:text-starlight-faint/60 focus:border-neon-purple/70 focus:shadow-[0_0_0_4px_rgba(176,0,255,0.14),0_0_28px_-8px_rgba(176,0,255,0.85)] mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3.5 text-base outline-none transition duration-300"
+              />
+              <p className="text-starlight-faint mt-2 text-xs">
+                They need to check in too and name you back — that&rsquo;s how we
+                confirm it&rsquo;s mutual.
+              </p>
+            </div>
+          )}
+        </div>
 
         {error && (
           <p

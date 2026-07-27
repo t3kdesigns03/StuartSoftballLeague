@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
-
 import { DrawCountdown } from "@/components/DrawCountdown";
 import { FinalDraw } from "@/components/FinalDraw";
 import { Header } from "@/components/Header";
 import { SignupForm } from "@/components/SignupForm";
 import { SignupList } from "@/components/SignupList";
+import { SiteFooter } from "@/components/SiteFooter";
 import { useSignups } from "@/hooks/useSignups";
 import { useTeamDraw } from "@/hooks/useTeamDraw";
 
@@ -41,17 +40,7 @@ export default function HomePage() {
         <SignupList signups={signups} loading={loading} error={error} />
       </div>
 
-      <footer className="mt-14 text-center">
-        <p className="text-starlight-faint text-xs font-bold tracking-[0.2em] uppercase">
-          Teams are drawn Monday nights · Play ball Tuesday
-        </p>
-        <Link
-          href="/admin"
-          className="text-neon-purple/80 hover:text-neon-cyan mt-3 inline-block text-xs font-black tracking-[0.28em] uppercase transition-all duration-300 hover:drop-shadow-[0_0_12px_rgba(0,240,255,0.9)]"
-        >
-          <span className="border-b border-current pb-0.5">Admin</span>
-        </Link>
-      </footer>
+      <SiteFooter showAdmin />
     </main>
   );
 }

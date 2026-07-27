@@ -23,7 +23,7 @@ export function useSignups() {
     // roster table (and therefore without exposing payment status).
     const { data, error: fetchError } = await supabase
       .from("signups_public")
-      .select("id, player_id, name, gender, week_id, created_at")
+      .select("id, player_id, name, gender, week_id, created_at, partner_name")
       .eq("week_id", week)
       .order("created_at", { ascending: true });
 

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       { week_id, teams, published: true, drawn_at: new Date().toISOString() },
       { onConflict: "week_id" },
     )
-    .select("week_id, teams, drawn_at, published, published_at")
+    .select("week_id, teams, drawn_at, published, published_at, score_a, score_b")
     .single();
 
   if (error) {

@@ -18,7 +18,7 @@ export function useTeamDraw(weekId: string | null) {
   const refresh = useCallback(async (week: string) => {
     const { data } = await supabase
       .from("team_draws")
-      .select("week_id, teams, drawn_at, published, published_at")
+      .select("week_id, teams, drawn_at, published, published_at, score_a, score_b")
       .eq("week_id", week)
       .maybeSingle();
     setDraw((data as TeamDraw | null) ?? null);

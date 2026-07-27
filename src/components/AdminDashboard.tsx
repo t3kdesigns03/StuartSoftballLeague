@@ -1,17 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { GenderBadge } from "@/components/GenderBadge";
 import { Header } from "@/components/Header";
 import { PaymentRoster } from "@/components/PaymentRoster";
+import { ScoreEntry } from "@/components/ScoreEntry";
+import { SiteFooter } from "@/components/SiteFooter";
 import { TeamCard } from "@/components/TeamCard";
 import { useSignups } from "@/hooks/useSignups";
 import { useTeamDraw } from "@/hooks/useTeamDraw";
 import { formatCountdown, isPastCutoff, minutesToCutoff } from "@/lib/cutoff";
-import { generateTeams } from "@/lib/teams";
+import { describeBalance, generateTeams } from "@/lib/teams";
 import type { Team } from "@/lib/types";
 import { toPublishedTeams } from "@/lib/types";
 import { startNewWeek } from "@/lib/week";
@@ -21,6 +22,7 @@ export function AdminDashboard() {
   const { weekId, setWeekId, signups, loading, error } = useSignups();
   const { draw, reload: reloadDraw } = useTeamDraw(weekId);
   const [teams, setTeams] = useState<[Team, Team] | null>(null);
+  const balance = teams ? describeBalance(teams, signups) : null;
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [busy, setBusy] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -213,6 +215,35 @@ export function AdminDashboard() {
             <TeamCard team={teams[1]} />
           </div>
 
+          {balance && (balance.lopsided || balance.pairsKept > 0) && (
+            <div
+              className={`rounded-blob mt-5 border-2 p-4 sm:p-5 ${
+                balance.lopsided
+                  ? "border-neon-yellow/45 bg-neon-yellow/[0.07]"
+                  : "border-neon-purple/35 bg-neon-purple/[0.06]"
+              }`}
+            >
+              {balance.pairsKept > 0 && (
+                <p className="text-neon-purple text-sm font-bold">
+                  🔗 {balance.pairsKept}{" "}
+                  {balance.pairsKept === 1 ? "couple" : "couples"} kept together.
+                </p>
+              )}
+              {balance.lopsided && (
+                <p
+                  className={`text-neon-yellow text-sm font-bold ${
+                    balance.pairsKept > 0 ? "mt-1.5" : ""
+                  }`}
+                >
+                  Teams came out uneven — {balance.sizeGap} apart in size
+                  {balance.guyGap > 1 && `, ${balance.guyGap} in guys`}
+                  {balance.girlGap > 1 && `, ${balance.girlGap} in girls`}. Pairs
+                  are never split, so re-draw for a different split.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="glass-panel rounded-blob mt-5 p-5 sm:p-6">
             <p className="text-starlight-dim text-sm">
               {isLive
@@ -301,18 +332,11 @@ export function AdminDashboard() {
         </section>
       )}
 
+      {isLive && draw && <ScoreEntry draw={draw} onSaved={reloadDraw} />}
+
       <PaymentRoster />
 
-      <footer className="mt-14 text-center">
-        <Link
-          href="/"
-          className="text-starlight-faint hover:text-neon-cyan text-xs font-black tracking-[0.24em] uppercase transition-all duration-300 hover:drop-shadow-[0_0_12px_rgba(0,240,255,0.9)]"
-        >
-          <span className="border-b border-current pb-0.5">
-            Back to signup page
-          </span>
-        </Link>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

@@ -20,6 +20,8 @@ export type Signup = {
   gender: Gender;
   created_at: string;
   week_id: string;
+  /** Optional. Who this person asked to be teamed with, as typed this week. */
+  partner_name: string | null;
 };
 
 export type Team = {
@@ -27,6 +29,8 @@ export type Team = {
   color: "green" | "yellow";
   captain: Signup;
   players: Signup[];
+  /** Suggested lineup, alternating gender as far as the roster allows. */
+  battingOrder: Signup[];
 };
 
 export const GENDER_LABELS: Record<Gender, string> = {
@@ -46,6 +50,8 @@ export type PublishedTeam = {
   color: Team["color"];
   captain_id: string;
   players: { id: string; name: string; gender: Gender }[];
+  /** Player ids in batting order. Absent on draws published before this feature. */
+  batting_order?: string[];
 };
 
 /** The published draw for one week. The "final say". */
@@ -55,6 +61,8 @@ export type TeamDraw = {
   drawn_at: string;
   published: boolean;
   published_at: string | null;
+  score_a: number | null;
+  score_b: number | null;
 };
 
 /** Convert an in-memory draw into the snapshot shape we persist. */
@@ -70,5 +78,6 @@ export function toPublishedTeams(
       name: p.name,
       gender: p.gender,
     })),
+    batting_order: team.battingOrder.map((p) => p.player_id),
   })) as [PublishedTeam, PublishedTeam];
 }

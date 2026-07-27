@@ -59,6 +59,13 @@ create table if not exists public.signups (
 alter table public.signups
   add column if not exists player_id uuid references public.players(id) on delete cascade;
 
+-- Optional. Free text, entered fresh each week, so pairings can change (subs,
+-- someone's partner sitting out). Matched case-insensitively against the other
+-- players checked in that same week.
+alter table public.signups
+  add column if not exists partner_name text
+  check (partner_name is null or char_length(trim(partner_name)) between 1 and 60);
+
 -- --- migration from the original layout ------------------------------------
 -- Older databases have name/gender directly on signups. Move those people into
 -- the roster and point their check-ins at the new rows. No-ops afterwards.
@@ -185,22 +192,34 @@ create trigger team_draws_sync_published_at
 -- SECURITY DEFINER so the browser never needs write access to either table,
 -- and so find-or-create is atomic rather than a read-then-write race.
 -- ---------------------------------------------------------------------------
-create or replace function public.check_in(p_name text, p_gender text)
+create or replace function public.check_in(
+  p_name    text,
+  p_gender  text,
+  p_partner text default null
+)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_name   text := trim(p_name);
-  v_week   text;
-  v_player uuid;
+  v_name    text := trim(p_name);
+  v_partner text := nullif(trim(coalesce(p_partner, '')), '');
+  v_week    text;
+  v_player  uuid;
 begin
   if v_name is null or char_length(v_name) = 0 or char_length(v_name) > 60 then
     raise exception 'invalid name' using errcode = '22000';
   end if;
   if p_gender not in ('guy', 'girl') then
     raise exception 'invalid gender' using errcode = '22000';
+  end if;
+  if v_partner is not null and char_length(v_partner) > 60 then
+    raise exception 'invalid partner name' using errcode = '22000';
+  end if;
+  -- Nobody is their own partner.
+  if v_partner is not null and lower(v_partner) = lower(v_name) then
+    v_partner := null;
   end if;
 
   select current_week_id into v_week from public.league_state where id = 1;
@@ -211,14 +230,20 @@ begin
     set gender = excluded.gender          -- lets someone correct their own entry
   returning id into v_player;
 
-  insert into public.signups (player_id, week_id)
-  values (v_player, v_week)
-  on conflict (week_id, player_id) do nothing;
+  -- Checking in again updates the partner rather than being ignored, so people
+  -- can fix a typo by simply submitting the form a second time.
+  insert into public.signups (player_id, week_id, partner_name)
+  values (v_player, v_week, v_partner)
+  on conflict (week_id, player_id) do update
+    set partner_name = excluded.partner_name;
 end;
 $$;
 
-revoke all on function public.check_in(text, text) from public;
-grant execute on function public.check_in(text, text) to anon, authenticated;
+-- Drop the old two-argument signature so PostgREST does not see both.
+drop function if exists public.check_in(text, text);
+
+revoke all on function public.check_in(text, text, text) from public;
+grant execute on function public.check_in(text, text, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
@@ -278,11 +303,15 @@ create policy "published draws are readable by anyone"
 -- A view owned by the definer reads its base tables with the owner's rights,
 -- so this projects exactly the columns the public page needs and nothing else.
 -- ---------------------------------------------------------------------------
+-- partner_name is included: it is needed to compute pairs at draw time, and it
+-- is information the person typed about themselves publicly. Payment status
+-- still never appears here.
 create or replace view public.signups_public as
   select s.id,
          s.week_id,
          s.created_at,
          s.player_id,
+         s.partner_name,
          p.name,
          p.gender
     from public.signups s
