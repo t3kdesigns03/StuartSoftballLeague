@@ -29,7 +29,8 @@ const RULES: Rule[] = [
   },
   {
     n: 5,
-    body: "10 players play at a time, 11 may bat. A team may start a game with 7 players. Late players may be inserted into the game by asking the umpire for time and inserting them to the end of the lineup. At any time if a team has less than 7 players because of injury, ejection, or having to leave, the game will be a forfeit.",
+    title: "Roster and field alignment",
+    body: "10 players play at a time, 11 may bat. The standard lineup is 5 men and 5 women — three of each in the infield and two of each in the outfield, with an opposite-gender battery (male pitcher / female catcher, or female pitcher / male catcher). A team may start a game with 7 players. Late players may be inserted by asking the umpire for time and adding them to the end of the lineup. If a team drops below 7 players because of injury, ejection, or having to leave, the game is a forfeit.",
   },
   {
     n: 6,
@@ -55,61 +56,71 @@ const RULES: Rule[] = [
   {
     n: 11,
     title: "Batting order",
-    body: "Batting order must alternate male/female as much as possible. The batter will start at bat with a count of 1 ball and 1 strike. In the case a team must bat 2 consecutive males, an out will be recorded each time before the 2nd man bats. There are no restrictions on defensive positions regarding men/women playing the field.",
+    body: "Batting order must alternate male/female as much as possible. The batter starts with a count of 1 ball and 1 strike. When a team must bat 2 consecutive males, an out is recorded each time before the 2nd man bats.",
   },
   {
     n: 12,
-    title: "Home runs — one up rule",
-    body: "Home runs are allowed on a “1 up” basis. For all fields and all games, the “One Up Rule” is in effect: teams are allowed to hit one home run more than the opponent with no maximum home run limit. Any home run hit above the ‘1 up’ limit is an automatic out.",
+    title: "Courtesy foul",
+    body: "A batter with two strikes is allowed one courtesy foul. The first foul ball hit with two strikes does not count as a strikeout; a second foul with two strikes is an out.",
   },
   {
     n: 13,
-    body: "ASA bats must be used. Men will hit a 12″ ball, women will hit an 11″ ball.",
+    title: "Walks",
+    body: "When a male batter is walked, he advances to second base. With two outs, a walked male advances to second and the following female batter may take first base or bat.",
   },
   {
     n: 14,
+    title: "Home runs",
+    body: "Each team is allowed two home runs per sex, with a maximum of one home run per sex in any single inning. Any home run beyond that limit is an automatic out.",
+  },
+  {
+    n: 15,
+    body: "ASA bats must be used. Men hit a 12″ ball, women hit an 11″ ball.",
+  },
+  {
+    n: 16,
     title: "Reentry rule",
     body: "Any of the starting players may be withdrawn and reentered once, provided players occupy the same batting order.",
   },
   {
-    n: 15,
+    n: 17,
     title: "Mercy rule",
     body: "15-run rule after 5 innings. A time limit of 60 minutes is in effect for each game. No inning begins after the 60-minute time limit.",
   },
   {
-    n: 16,
+    n: 18,
     title: "Slide rule",
     body: "If there is a play at a base you must slide or avoid contact — avoid contact at all times when the defensive player has the ball or is receiving the ball. No running over or crashing into another player. When a defensive player has the ball or is about to catch a thrown ball and the runner remains on his feet and crashes into the defensive player, the runner will be declared out. If the act is determined to be flagrant, the offender shall be ejected.",
   },
   {
-    n: 17,
+    n: 19,
     title: "Injury rule",
     body: "If a player leaves the game injured, that player may not re-enter that game.",
   },
   {
-    n: 18,
+    n: 20,
     body: "The only players allowed on the field while on offense are the base coaches, the on-deck batter, and the batter. It is the responsibility of the manager to keep all other persons from this area. For their safety, please keep children out of the dugout.",
   },
   {
-    n: 19,
+    n: 21,
     title: "Alcohol rule",
     body: "No alcohol allowed during games. Players that break this rule can be ejected from the game.",
   },
   {
-    n: 20,
+    n: 22,
     body: "Umpires and their decisions will be respected and not interfered with at any time. Any player or manager/captain that is ejected from a game for unsportsmanlike conduct, disrespect, vulgarity, or profanity must leave the park. This decision will be made by the captains or alternate captains.",
   },
   {
-    n: 21,
+    n: 23,
     body: "Each team captain/manager is responsible for the conduct of his/her team players and is responsible to see that all rules are observed.",
   },
   {
-    n: 22,
+    n: 24,
     body: "In case of inclement weather, team captains will be messaged by 4:00 PM, and the team captains will then start a phone tree or e-mail tree to their team members to get the word out about the cancellation.",
   },
-  { n: 23, body: "No stealing of bases will be allowed." },
+  { n: 25, body: "No stealing of bases will be allowed." },
   {
-    n: 24,
+    n: 26,
     body: "The City of Stuart reserves the right to make any changes necessary during the league.",
   },
 ];
@@ -142,6 +153,32 @@ export default function RulesPage() {
           </a>{" "}
           on file before taking the field.
         </p>
+      </ContentSection>
+
+      <ContentSection title="New for 2026">
+        <p>
+          A few rules were updated for the 2026 season. The headline changes:
+        </p>
+        <ul className="mt-1 space-y-2 pl-1">
+          <li>
+            <span className="text-neon-yellow font-bold">Home runs:</span> two
+            per sex per game, max one per sex per inning — anything over is an
+            out (rule 14).
+          </li>
+          <li>
+            <span className="text-neon-yellow font-bold">Courtesy foul:</span>{" "}
+            one foul is allowed with two strikes before a strikeout (rule 12).
+          </li>
+          <li>
+            <span className="text-neon-yellow font-bold">Walks:</span> a walked
+            male takes second base; with two outs the following female may take
+            first (rule 13).
+          </li>
+          <li>
+            <span className="text-neon-yellow font-bold">Field alignment:</span>{" "}
+            standard 5 men / 5 women with an opposite-gender battery (rule 5).
+          </li>
+        </ul>
       </ContentSection>
 
       <section className="glass-panel rounded-blob p-5 sm:p-7">
