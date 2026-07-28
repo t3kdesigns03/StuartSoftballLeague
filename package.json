@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/test-teams.mjs && node scripts/test-lock.mjs && node scripts/test-parity.mjs"
+    "test": "node scripts/test-teams.mjs && node scripts/test-lock.mjs && node scripts/test-parity.mjs && node scripts/test-entries.mjs && node scripts/test-suggest.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

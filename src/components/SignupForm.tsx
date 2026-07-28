@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
+import { suggestPartners } from "@/lib/partnerSuggest";
 import { supabase } from "@/lib/supabase";
-import type { Gender } from "@/lib/types";
+import type { Gender, Signup } from "@/lib/types";
 
 type Props = {
   weekId: string | null;
+  /** This week's check-ins, used to suggest a partner. */
+  signups?: Signup[];
   /** Called after a successful insert so the list can update instantly. */
   onSignedUp?: () => void;
 };
@@ -36,7 +39,7 @@ const GENDER_OPTIONS: {
   },
 ];
 
-export function SignupForm({ weekId, onSignedUp }: Props) {
+export function SignupForm({ weekId, signups = [], onSignedUp }: Props) {
   const [name, setName] = useState("");
   const [gender, setGender] = useState<Gender | null>(null);
   const [withPartner, setWithPartner] = useState(false);
@@ -45,6 +48,19 @@ export function SignupForm({ weekId, onSignedUp }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const disabled = status === "saving" || !weekId;
+
+  // Suggestions, never assumptions. Recomputed as they type their name.
+  const suggestions = useMemo(
+    () => suggestPartners(name, signups),
+    [name, signups],
+  );
+  const waitingOnYou = suggestions.find((s) => s.reason === "waiting");
+
+  function acceptSuggestion(partnerName: string) {
+    setWithPartner(true);
+    setPartner(partnerName);
+    setError(null);
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -151,6 +167,25 @@ export function SignupForm({ weekId, onSignedUp }: Props) {
           </div>
         </fieldset>
 
+        {/* Someone already named you — one tap completes the pair. */}
+        {waitingOnYou && !withPartner && (
+          <button
+            type="button"
+            onClick={() => acceptSuggestion(waitingOnYou.name)}
+            className="border-neon-purple/55 bg-neon-purple/10 animate-pop-in w-full rounded-xl border-2 px-4 py-3.5 text-left shadow-[0_0_28px_-10px_rgba(176,0,255,0.95)] transition-all duration-300 hover:bg-neon-purple/[0.16]"
+          >
+            <p className="text-neon-purple text-sm font-black">
+              <span aria-hidden="true" className="mr-1.5">
+                🥎💜
+              </span>
+              {waitingOnYou.name} is waiting for you
+            </p>
+            <p className="text-starlight-dim mt-1 text-xs font-bold">
+              Tap to team up — you&rsquo;ll be drawn onto the same team.
+            </p>
+          </button>
+        )}
+
         {/* Optional partner pairing */}
         <div>
           <button
@@ -202,6 +237,37 @@ export function SignupForm({ weekId, onSignedUp }: Props) {
                 placeholder="Casey Rivera"
                 className="text-starlight placeholder:text-starlight-faint/60 focus:border-neon-purple/70 focus:shadow-[0_0_0_4px_rgba(176,0,255,0.14),0_0_28px_-8px_rgba(176,0,255,0.85)] mt-2 w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3.5 text-base outline-none transition duration-300"
               />
+              {suggestions.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  {suggestions.map((s) => {
+                    const chosen =
+                      partner.trim().toLowerCase() === s.name.toLowerCase();
+                    return (
+                      <button
+                        key={s.name}
+                        type="button"
+                        onClick={() => acceptSuggestion(s.name)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all duration-300 ${
+                          chosen
+                            ? "border-neon-purple bg-neon-purple/20 text-neon-purple"
+                            : "text-starlight-dim hover:border-neon-purple/60 hover:text-neon-purple border-white/15 bg-white/[0.03]"
+                        }`}
+                      >
+                        <span aria-hidden="true" className="mr-1">
+                          {s.reason === "waiting" ? "💜" : "👀"}
+                        </span>
+                        {s.name}
+                        <span className="text-starlight-faint ml-1.5 font-normal">
+                          {s.reason === "waiting"
+                            ? "is waiting for you"
+                            : "also playing"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <p className="text-starlight-faint mt-2 text-xs">
                 They need to check in too and name you back — that&rsquo;s how we
                 confirm it&rsquo;s mutual.

@@ -37,7 +37,7 @@ export default function HomePage() {
           published ? "mt-12" : "mt-6"
         }`}
       >
-        <SignupForm weekId={weekId} onSignedUp={reload} />
+        <SignupForm weekId={weekId} signups={signups} onSignedUp={reload} />
         <SignupList signups={signups} loading={loading} error={error} />
       </div>
 
