@@ -103,24 +103,19 @@ const RULES: Rule[] = [
   },
   {
     n: 21,
-    title: "Alcohol rule",
-    body: "No alcohol allowed during games. Players that break this rule can be ejected from the game.",
-  },
-  {
-    n: 22,
     body: "Umpires and their decisions will be respected and not interfered with at any time. Any player or manager/captain that is ejected from a game for unsportsmanlike conduct, disrespect, vulgarity, or profanity must leave the park. This decision will be made by the captains or alternate captains.",
   },
   {
-    n: 23,
+    n: 22,
     body: "Each team captain/manager is responsible for the conduct of his/her team players and is responsible to see that all rules are observed.",
   },
   {
-    n: 24,
+    n: 23,
     body: "In case of inclement weather, team captains will be messaged by 4:00 PM, and the team captains will then start a phone tree or e-mail tree to their team members to get the word out about the cancellation.",
   },
-  { n: 25, body: "No stealing of bases will be allowed." },
+  { n: 24, body: "No stealing of bases will be allowed." },
   {
-    n: 26,
+    n: 25,
     body: "The City of Stuart reserves the right to make any changes necessary during the league.",
   },
 ];
