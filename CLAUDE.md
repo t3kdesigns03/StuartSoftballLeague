@@ -143,6 +143,18 @@ rendering. All text files are UTF-8.
   game night, discovered at the worst possible moment.
 - **Start New Week deletes nothing.** It rolls `league_state.current_week_id`.
   Past weeks stay as history; the permanent roster and paid flags are untouched.
+- **A locked preview must be deterministic.** `TeamPreview` reshuffles with
+  `Math.random` while check-in is open — fine, it is explicitly a preview. At
+  the cutoff it regenerates from `seededRand(lockSeed(week, roster))` so every
+  visitor's browser computes the *same* teams. Freezing whatever each browser
+  happened to be showing would give every person a different "official" answer.
+  Two things are required, not one: a stable **seed** *and* a canonical **input
+  order** (`canonical()` sorts by `player_id`), because `generateTeams` walks
+  the array as given and `created_at` ties are unordered in Postgres. Tested in
+  `lock-test` style assertions — 50 simulated visitors, one identical draw.
+- **The commissioner's published draw always wins.** The page renders
+  `FinalDraw` instead of `TeamPreview` once `team_draws.published` is true. The
+  preview is never the source of truth.
 
 ---
 

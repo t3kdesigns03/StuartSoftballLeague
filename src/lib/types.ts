@@ -52,6 +52,8 @@ export type PublishedTeam = {
   players: { id: string; name: string; gender: Gender }[];
   /** Player ids in batting order. Absent on draws published before this feature. */
   batting_order?: string[];
+  /** Which dugout. Absent on draws published before this feature. */
+  home?: boolean;
 };
 
 /** The published draw for one week. The "final say". */
@@ -68,8 +70,9 @@ export type TeamDraw = {
 /** Convert an in-memory draw into the snapshot shape we persist. */
 export function toPublishedTeams(
   teams: [Team, Team],
+  homeIndex: 0 | 1 = Math.random() < 0.5 ? 0 : 1,
 ): [PublishedTeam, PublishedTeam] {
-  return teams.map((team) => ({
+  return teams.map((team, index) => ({
     name: team.name,
     color: team.color,
     captain_id: team.captain.player_id,
@@ -79,5 +82,6 @@ export function toPublishedTeams(
       gender: p.gender,
     })),
     batting_order: team.battingOrder.map((p) => p.player_id),
+    home: index === homeIndex,
   })) as [PublishedTeam, PublishedTeam];
 }

@@ -1,12 +1,45 @@
 import type { Gender, Signup, Team } from "@/lib/types";
 
 /**
+ * Source of randomness. Injectable so a draw can be reproduced exactly.
+ *
+ * The public preview reshuffles with `Math.random`, which is fine because it is
+ * explicitly a preview. A *locked* draw must be identical for every visitor, so
+ * it is generated with a seeded RNG derived from the week and the roster —
+ * otherwise each browser would freeze a different set of teams and call it
+ * official.
+ */
+export type Rand = () => number;
+
+/** Deterministic PRNG (mulberry32). Same seed, same sequence, every time. */
+export function seededRand(seed: number): Rand {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Stable 32-bit hash of a string, for turning a week id into a seed. */
+export function hashSeed(text: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/**
  * Fisher-Yates shuffle. Returns a new array; does not mutate the input.
  */
-export function shuffle<T>(items: readonly T[]): T[] {
+export function shuffle<T>(items: readonly T[], rand: Rand = Math.random): T[] {
   const result = [...items];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rand() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
@@ -98,6 +131,7 @@ export type DrawBalance = {
  */
 export function generateTeams(
   signups: readonly Signup[],
+  rand: Rand = Math.random,
 ): [Team, Team] | null {
   if (signups.length < 2) return null;
 
@@ -107,7 +141,7 @@ export function generateTeams(
   const singles = units.filter((u) => u.players.length === 1);
 
   // --- couples first, biggest imbalance first, to the lighter side ----------
-  for (const unit of shuffle(pairs)) {
+  for (const unit of shuffle(pairs, rand)) {
     const side = rosters[0].length <= rosters[1].length ? 0 : 1;
     rosters[side].push(...unit.players);
   }
@@ -116,6 +150,7 @@ export function generateTeams(
   for (const gender of ["guy", "girl"] as const) {
     const pool = shuffle(
       singles.filter((u) => u.players[0].gender === gender).map((u) => u.players[0]),
+      rand,
     );
     for (const player of pool) {
       const a = rosters[0].filter((p) => p.gender === gender).length;
@@ -126,7 +161,7 @@ export function generateTeams(
       } else if (rosters[0].length !== rosters[1].length) {
         side = rosters[0].length < rosters[1].length ? 0 : 1;
       } else {
-        side = Math.random() < 0.5 ? 0 : 1;
+        side = rand() < 0.5 ? 0 : 1;
       }
       rosters[side].push(player);
     }
@@ -138,8 +173,8 @@ export function generateTeams(
   if (rosters[1].length === 0) rosters[1].push(rosters[0].pop() as Signup);
 
   return [
-    buildTeam("Team Green", "green", rosters[0]),
-    buildTeam("Team Gold", "yellow", rosters[1]),
+    buildTeam("Team Green", "green", rosters[0], rand),
+    buildTeam("Team Gold", "yellow", rosters[1], rand),
   ];
 }
 
@@ -170,13 +205,18 @@ export function describeBalance(
   };
 }
 
-function buildTeam(name: string, color: Team["color"], players: Signup[]): Team {
-  const captain = players[Math.floor(Math.random() * players.length)];
+function buildTeam(
+  name: string,
+  color: Team["color"],
+  players: Signup[],
+  rand: Rand = Math.random,
+): Team {
+  const captain = players[Math.floor(rand() * players.length)];
   return {
     name,
     color,
     captain,
-    battingOrder: battingOrder(players),
+    battingOrder: battingOrder(players, rand),
     // Captain first, then everyone else alphabetically.
     players: [
       captain,
@@ -197,9 +237,12 @@ function buildTeam(name: string, color: Team["color"], players: Signup[]): Team 
  * 7 guys and 3 girls you get G-B-B-G-B-B-G-B-B-B rather than all three girls
  * bunched at one end.
  */
-export function battingOrder(players: readonly Signup[]): Signup[] {
-  const guys = shuffle(players.filter((p) => p.gender === "guy"));
-  const girls = shuffle(players.filter((p) => p.gender === "girl"));
+export function battingOrder(
+  players: readonly Signup[],
+  rand: Rand = Math.random,
+): Signup[] {
+  const guys = shuffle(players.filter((p) => p.gender === "guy"), rand);
+  const girls = shuffle(players.filter((p) => p.gender === "girl"), rand);
 
   const [majority, minority] =
     guys.length >= girls.length ? [guys, girls] : [girls, guys];

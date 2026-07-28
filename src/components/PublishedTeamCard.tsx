@@ -48,6 +48,27 @@ export function PublishedTeamCard({ team }: { team: PublishedTeam }) {
       />
 
       <div className="relative">
+        {/* Dugout. Absent on draws published before home/away existed. */}
+        {team.home !== undefined && (
+          <div
+            className={`-mx-5 -mt-5 mb-4 border-b px-5 py-2 sm:-mx-6 sm:-mt-6 sm:mb-5 sm:px-6 ${
+              team.home
+                ? "bg-neon-yellow/15 border-neon-yellow/35"
+                : "border-white/12 bg-white/[0.05]"
+            }`}
+          >
+            <p
+              className={`text-center text-[0.7rem] font-black tracking-[0.34em] uppercase ${
+                team.home
+                  ? "text-neon-yellow drop-shadow-[0_0_10px_rgba(240,255,0,0.65)]"
+                  : "text-starlight-dim"
+              }`}
+            >
+              {team.home ? "🏠 Home dugout" : "🚌 Away dugout"}
+            </p>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3
             className={`text-xl font-black tracking-wide uppercase sm:text-2xl ${theme.title}`}

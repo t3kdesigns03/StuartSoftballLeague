@@ -1,11 +1,11 @@
 "use client";
 
-import { DrawCountdown } from "@/components/DrawCountdown";
 import { FinalDraw } from "@/components/FinalDraw";
 import { Header } from "@/components/Header";
 import { SignupForm } from "@/components/SignupForm";
 import { SignupList } from "@/components/SignupList";
 import { SiteFooter } from "@/components/SiteFooter";
+import { TeamPreview } from "@/components/TeamPreview";
 import { useSignups } from "@/hooks/useSignups";
 import { useTeamDraw } from "@/hooks/useTeamDraw";
 
@@ -20,14 +20,15 @@ export default function HomePage() {
       <Header />
 
       {/*
-        Once teams are up they lead the page — that's what people came for.
-        Until then, the countdown holds that spot.
+        The commissioner's published draw always wins. Until they publish, the
+        interactive preview holds this spot — reshuffling while check-in is
+        open, then locking itself to a deterministic draw at the cutoff.
       */}
       <div className="mt-10">
         {published ? (
           <FinalDraw draw={draw} />
         ) : (
-          <DrawCountdown checkedIn={signups.length} />
+          <TeamPreview signups={signups} weekId={weekId} loading={loading} />
         )}
       </div>
 

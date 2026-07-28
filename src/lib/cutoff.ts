@@ -57,6 +57,24 @@ export function isPastCutoff(now = new Date()): boolean {
   return day === CUTOFF_DAY && hour >= CUTOFF_HOUR;
 }
 
+/**
+ * The instant the current game week's cutoff passed (or will pass).
+ *
+ * Used to freeze the locked roster: only check-ins recorded *before* this
+ * moment count toward the official draw. Without it a straggler adding their
+ * name at 3pm would change the lock seed and silently re-roll teams that
+ * everyone already read at lunch.
+ */
+export function currentCutoffInstant(now = new Date()): Date {
+  const mins = minutesToCutoff(now);
+  const next = new Date(now.getTime() + mins * 60_000);
+  // Zero the seconds so the boundary is exact.
+  next.setSeconds(0, 0);
+  return isPastCutoff(now)
+    ? new Date(next.getTime() - 7 * 1440 * 60_000)
+    : next;
+}
+
 /** "2d 4h", "3h 20m", "45m" — how long check-in stays open. */
 export function formatCountdown(minutes: number): string {
   if (minutes <= 0) return "now";

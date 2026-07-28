@@ -1,8 +1,8 @@
 # Stuart Softball League '26
 
 Weekly check-in + random team generator for an adult coed softball league.
-Players add their name through Monday; the commissioner draws two balanced
-teams for Tuesday's games.
+Players check in through Tuesday noon; the teams lock at noon and are posted
+for that night's games.
 
 - **Public page** (`/`) — check-in form, live list of who's playing, countdown to the draw, and the published teams once they're up
 - **Admin page** (`/admin`) — password protected; draws and publishes teams, tracks season dues, starts a new week
@@ -97,6 +97,43 @@ leave the teams two players apart.
 Re-running "Generate teams" re-draws from scratch and stores nothing, so a
 re-draw is free.
 
+### The Tuesday noon lock
+
+The public page shows a live preview that reshuffles every 8–12 seconds, with a
+"Roll the dice" button on a 12-second cooldown. At **Tuesday 12:00 noon** it
+stops moving and locks.
+
+The locked draw is **deterministic**: it is regenerated from
+`seededRand(lockSeed(week, roster))`, so every visitor's browser computes the
+same teams, names, captains, batting orders and dugouts with no server call.
+Freezing whatever random shuffle each browser happened to be showing would give
+every person a different "official" answer.
+
+Two things are needed for that, not one:
+
+- a stable **seed** (week id + sorted player ids), and
+- a canonical **input order** — `generateTeams` walks the array as given, and
+  `created_at` ties are unordered in Postgres.
+
+The locked roster is also **frozen to check-ins recorded before noon**. Late
+arrivals still appear in the signup list, they just don't disturb teams people
+have already read.
+
+### Auto-publish
+
+`netlify/functions/auto-publish.mts` runs on a schedule and writes that same
+draw to `team_draws` a few minutes after noon, so the week becomes real history
+and scores have something to attach to — without anyone pressing a button.
+
+- It **never overrides a manual publish**. If you already pressed Publish, it
+  exits.
+- It is **idempotent** — running twice changes nothing.
+- It produces a **byte-identical** draw to the one browsers locked, which
+  `npm run test` asserts directly.
+- Cron has no timezone and Iowa moves between CDT and CST, so it fires at both
+  17:05 and 18:05 UTC on Tuesdays and exits immediately unless the local hour is
+  actually 12.
+
 ### Publishing the draw
 
 Generating is private. Nothing reaches the public page until you press
@@ -114,19 +151,17 @@ public page picks it up over realtime — no refresh needed.
 
 `score_a` / `score_b` exist on the table and are unused — room for W/L history.
 
-### The Monday 6 PM cutoff
+### The cutoff
 
-`src/lib/cutoff.ts` computes time until Monday 18:00 in `America/Chicago`,
+`src/lib/cutoff.ts` computes time until **Tuesday 12:00** in `America/Chicago`,
 handling CDT/CST automatically.
 
-It is a **soft** deadline and deliberately locks nothing. Past the cutoff the
-admin's publish button changes to "★ Publish final teams ★" and the public
-countdown says the draw is imminent — but check-in stays open and you can
-publish whenever you like. A hard lock would mean a wrong clock or a bad
-timezone could leave you unable to post teams on game night.
-
-The public page shows a live countdown to the draw, which is replaced by the
-teams themselves once published.
+The cutoff is hard for the *preview* — it stops reshuffling and locks — but
+deliberately soft for *you*. Check-in stays open past noon, the admin can draw
+and publish at any hour, and nothing about posting teams is gated on a clock.
+A hard lock on the admin side would mean a wrong clock or a bad timezone could
+leave you unable to post teams on game night, discovered at the worst possible
+moment.
 
 ### Season dues
 
@@ -197,7 +232,8 @@ src/
 │   ├── PaymentRoster.tsx           Permanent roster + season dues toggles
 │   ├── FinalDraw.tsx               Published teams on the public page
 │   ├── PublishedTeamCard.tsx       One persisted team snapshot
-│   ├── DrawCountdown.tsx           Public countdown to the Monday draw
+│   ├── TeamPreview.tsx             Live preview, dice roll, noon lock
+│   ├── PreviewTeamCard.tsx         One preview team with Home/Away banner
 │   ├── SignupList.tsx              Live "this week's signups" list
 │   ├── AdminDashboard.tsx          Generate teams / start new week
 │   ├── AdminLogin.tsx              Password gate
@@ -213,7 +249,8 @@ src/
     ├── supabaseAdmin.ts            Server-only client (secret key)
     ├── teams.ts                    Shuffle + balanced deal + captains
     ├── week.ts                     Current week / start new week
-    ├── cutoff.ts                   Monday 6 PM soft deadline (America/Chicago)
+    ├── cutoff.ts                   Tuesday 12 PM cutoff (America/Chicago)
+    ├── teamNames.ts                Off-the-wall weekly team names
     ├── adminAuth.ts                Cookie + password verification
     ├── types.ts
     └── database.types.ts
@@ -293,6 +330,7 @@ var and redeploying does not un-publish it.
 
 | When | What |
 | --- | --- |
-| Through Monday | Players sign up at the public page |
-| Monday night | Admin opens `/admin`, hits **Generate teams**, shares the result |
+| Through Tuesday noon | Players check in; the preview reshuffles live |
+| Tuesday 12:00 | Teams lock. Auto-publish writes them to the database |
+| Tuesday evening | Play ball at 6:30 |
 | After Tuesday's game | Admin hits **Start new week** to open signups for next week |
