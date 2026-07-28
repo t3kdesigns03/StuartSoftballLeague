@@ -90,13 +90,31 @@ league's traffic.
   The distance is driven by `--star-tile` so the CSS and the component can't
   drift apart.
 
-### 6. Google Fonts broke the build
+### 6. Background rendering budget
+
+The background runs behind every page, so it is held to a strict budget.
+
+- **Sprites are cached, never redrawn.** Each planet softball is rendered once
+  to an offscreen canvas (`src/lib/planetSprites.ts`); the frame loop only does
+  `drawImage` with a rotation transform. Redrawing stitches, surface detail and
+  shading for 9 balls at 60fps would be hundreds of path ops per frame.
+- **One rAF loop on the page**, owned by `PlanetField`. Don't add a second.
+- DPR capped at 1.5. Phone canvas ≈3 MB, desktop ≈18 MB, sprites ≈6 MB.
+- Loop stops on `visibilitychange` and never starts under
+  `prefers-reduced-motion` (a single static frame is drawn instead).
+- Ball count and size scale down below 640px.
+- Gotcha that already bit once: a CSS `animation` and an inline `transform`
+  write the *same* property, so the animation silently wins. Anything that needs
+  both (e.g. drift plus a pointer offset) must split them across nested
+  elements.
+
+### 7. Google Fonts broke the build
 
 `next/font` fetches at build time and a failed fetch is a hard build failure.
 
 - **Rule:** system font stack only. No build-time network dependencies.
 
-### 7. README was UTF-16
+### 8. README was UTF-16
 
 Inherited from the repo's original file. Broke `grep`, diffs and GitHub
 rendering. All text files are UTF-8.

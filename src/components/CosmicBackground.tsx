@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+
+import { PlanetField } from "@/components/PlanetField";
 
 /**
  * Star tile size in CSS pixels. The tile is repeated by CSS on *both* axes, so
@@ -14,8 +16,8 @@ const STAR_TILE = 1000;
 const STAR_DPR = 1.5;
 
 /**
- * Fixed, non-interactive atmosphere layer: nebula glows, a drifting starfield,
- * and distant orbs that parallax gently.
+ * Fixed, non-interactive atmosphere layer: nebula glows and a drifting
+ * starfield. Planet softballs and the squirrel are drawn on top by PlanetField.
  *
  * Memory: the starfield is painted once into a single offscreen canvas, handed
  * to the compositor as one repeating background image, and the canvas is thrown
@@ -23,13 +25,11 @@ const STAR_DPR = 1.5;
  * canvases in the DOM and cost ~92 MB, which is enough to get a tab evicted on
  * a mid-range phone.
  *
- * Motion: drift and float are pure CSS transforms (compositor-only, no
- * per-frame JS). Parallax writes two CSS custom properties inside a single rAF.
- * Pointer devices drive it from the cursor; touch devices drive it from scroll.
- * Both are disabled under prefers-reduced-motion.
+ * Motion: the starfield drift is a pure CSS transform (compositor-only, no
+ * per-frame JS). The planet softballs and the squirrel live on their own canvas
+ * in PlanetField, which owns the only rAF loop on the page.
  */
 export function CosmicBackground() {
-  const rootRef = useRef<HTMLDivElement>(null);
   const [starsUrl, setStarsUrl] = useState<string | null>(null);
 
   // Paint the star tile once, hand it over as an object URL, drop the canvas.
@@ -99,63 +99,10 @@ export function CosmicBackground() {
     };
   }, []);
 
-  // Parallax: cursor on pointer devices, scroll on touch devices.
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    let frame = 0;
-    let tx = 0;
-    let ty = 0;
-
-    const commit = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        root.style.setProperty("--px", tx.toFixed(3));
-        root.style.setProperty("--py", ty.toFixed(3));
-      });
-    };
-
-    const onPointerMove = (event: PointerEvent) => {
-      tx = (event.clientX / window.innerWidth - 0.5) * 2;
-      ty = (event.clientY / window.innerHeight - 0.5) * 2;
-      commit();
-    };
-
-    // Touch has no cursor, so scroll position drives the depth instead: the
-    // orbs slide as you move down the page.
-    const onScroll = () => {
-      const max = Math.max(
-        1,
-        document.documentElement.scrollHeight - window.innerHeight,
-      );
-      ty = (Math.min(window.scrollY, max) / max - 0.5) * 2;
-      tx = ty * 0.35;
-      commit();
-    };
-
-    const fine = window.matchMedia("(pointer: fine)").matches;
-    if (fine) {
-      window.addEventListener("pointermove", onPointerMove, { passive: true });
-    } else {
-      window.addEventListener("scroll", onScroll, { passive: true });
-      onScroll();
-    }
-
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("scroll", onScroll);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
-
   return (
     <div
-      ref={rootRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-0 overflow-hidden [--px:0] [--py:0]"
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
       style={{ ["--star-tile" as string]: `${STAR_TILE}px` }}
     >
       {/* Base wash: near-black into deep indigo */}
@@ -206,80 +153,15 @@ export function CosmicBackground() {
         />
       )}
 
-      {/* Distant planets / floating softballs */}
-      <Orb
-        className="top-[13%] left-[6%] h-24 w-24 sm:h-32 sm:w-32"
-        depth={26}
-        delay="0s"
-        duration="11s"
-        background="radial-gradient(circle at 32% 28%, #ff6ad5 0%, #b000ff 45%, #3a006b 100%)"
-        glow="rgba(255,0,170,0.5)"
-      />
-      <Orb
-        className="top-[60%] right-[7%] h-32 w-32 sm:h-44 sm:w-44"
-        depth={18}
-        delay="1.4s"
-        duration="14s"
-        background="radial-gradient(circle at 35% 30%, #7ef9ff 0%, #00a2ff 48%, #001a4d 100%)"
-        glow="rgba(0,240,255,0.45)"
-      />
-      <Orb
-        className="top-[30%] right-[24%] h-14 w-14 sm:h-20 sm:w-20"
-        depth={38}
-        delay="0.7s"
-        duration="9s"
-        background="radial-gradient(circle at 34% 30%, #f5ff8a 0%, #d4e800 52%, #4a5200 100%)"
-        glow="rgba(240,255,0,0.35)"
-      />
-      <Orb
-        className="bottom-[12%] left-[20%] h-16 w-16 sm:h-24 sm:w-24"
-        depth={32}
-        delay="2.1s"
-        duration="12s"
-        background="radial-gradient(circle at 32% 30%, #b6ff9e 0%, #39ff14 50%, #073b00 100%)"
-        glow="rgba(57,255,20,0.32)"
-      />
+      {/*
+        Planet softballs + the Sabertooth Squirrel. Sits above the starfield and
+        below the vignette, so the vignette still dims the edges and keeps the
+        centre of the page readable.
+      */}
+      <PlanetField />
 
       {/* Vignette keeps the centre readable */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_36%,rgba(5,5,15,0.5)_76%,rgba(5,5,15,0.88)_100%)]" />
-    </div>
-  );
-}
-
-function Orb({
-  className,
-  depth,
-  delay,
-  duration,
-  background,
-  glow,
-}: {
-  className: string;
-  depth: number;
-  delay: string;
-  duration: string;
-  background: string;
-  glow: string;
-}) {
-  return (
-    // Outer element owns the parallax transform...
-    <div
-      className={`absolute ${className}`}
-      style={{
-        transform: `translate3d(calc(var(--px) * ${depth}px), calc(var(--py) * ${depth}px), 0)`,
-        transition: "transform 0.5s cubic-bezier(0.16,1,0.3,1)",
-      }}
-    >
-      {/* ...inner element owns the float animation, so they compose. */}
-      <div
-        className="h-full w-full rounded-full"
-        style={{
-          background,
-          opacity: 0.34,
-          boxShadow: `0 0 70px ${glow}, inset -8px -10px 26px rgba(0,0,0,0.55)`,
-          animation: `float-slow ${duration} ease-in-out ${delay} infinite`,
-        }}
-      />
     </div>
   );
 }
