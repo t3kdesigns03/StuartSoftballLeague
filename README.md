@@ -9,6 +9,11 @@ teams for Tuesday's games.
 
 Built with Next.js 15 (App Router), TypeScript, Tailwind CSS v4, and Supabase.
 
+> **Making changes?** Read [`CLAUDE.md`](CLAUDE.md) first. It records the
+> failures this project has already hit — a leaked secret key, an admin page
+> deployed with a default password, a migration that blanked the public page —
+> and the guardrails that came out of them.
+
 ---
 
 ## Setup
