@@ -2,16 +2,19 @@
 
 import { FinalDraw } from "@/components/FinalDraw";
 import { Header } from "@/components/Header";
+import { SeasonHistory } from "@/components/SeasonHistory";
 import { SignupForm } from "@/components/SignupForm";
 import { SignupList } from "@/components/SignupList";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TeamPreview } from "@/components/TeamPreview";
+import { usePublishedHistory } from "@/hooks/usePublishedHistory";
 import { useSignups } from "@/hooks/useSignups";
 import { useTeamDraw } from "@/hooks/useTeamDraw";
 
 export default function HomePage() {
   const { weekId, signups, loading, error, reload } = useSignups();
   const { draw } = useTeamDraw(weekId);
+  const { draws: history } = usePublishedHistory();
 
   const published = Boolean(draw?.published);
 
@@ -40,6 +43,12 @@ export default function HomePage() {
         <SignupForm weekId={weekId} signups={signups} onSignedUp={reload} />
         <SignupList signups={signups} loading={loading} error={error} />
       </div>
+
+      {/*
+        Every past published week, most recent first. The week shown live above
+        is excluded so it does not appear twice.
+      */}
+      <SeasonHistory draws={history} excludeWeekId={published ? weekId : null} />
 
       <SiteFooter showAdmin />
     </main>
