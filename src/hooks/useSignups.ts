@@ -120,5 +120,5 @@ export function useSignups() {
     if (weekId) void refresh(weekId);
   }, [weekId, refresh]);
 
-  return { weekId, setWeekId, signups, loading, error, reload };
+  return { weekId, setWeekId, signups, setSignups, loading, error, reload };
 }

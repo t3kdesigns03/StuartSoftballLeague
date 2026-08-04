@@ -13,13 +13,14 @@ import { useSignups } from "@/hooks/useSignups";
 import { useTeamDraw } from "@/hooks/useTeamDraw";
 import { formatCountdown, isPastCutoff, minutesToCutoff } from "@/lib/cutoff";
 import { describeBalance, generateTeams } from "@/lib/teams";
-import type { Team } from "@/lib/types";
+import type { Signup, Team } from "@/lib/types";
 import { toPublishedTeams } from "@/lib/types";
 import { startNewWeek } from "@/lib/week";
 
 export function AdminDashboard() {
   const router = useRouter();
-  const { weekId, setWeekId, signups, loading, error } = useSignups();
+  const { weekId, setWeekId, signups, setSignups, loading, error } =
+    useSignups();
   const { draw, reload: reloadDraw } = useTeamDraw(weekId);
   const [teams, setTeams] = useState<[Team, Team] | null>(null);
   const balance = teams ? describeBalance(teams, signups) : null;
@@ -27,6 +28,8 @@ export function AdminDashboard() {
   const [busy, setBusy] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   // Soft deadline, refreshed each minute. Drives emphasis only — nothing locks.
   const [now, setNow] = useState(() => new Date());
@@ -104,6 +107,30 @@ export function AdminDashboard() {
   async function handleLogout() {
     await fetch("/api/admin/login", { method: "DELETE" });
     router.refresh();
+  }
+
+  // Remove someone who checked in and then backed out. Only touches this
+  // week's `signups` row — never the permanent roster. Optimistic: the row
+  // vanishes immediately and is restored if the server says no.
+  async function handleRemove(signup: Signup) {
+    const previous = signups;
+    setConfirmRemoveId(null);
+    setRemovingId(signup.id);
+    setSignups(previous.filter((s) => s.id !== signup.id));
+    try {
+      const response = await fetch("/api/admin/signups", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signup_id: signup.id }),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      setNotice(`Removed ${signup.name} from this week.`);
+    } catch {
+      setSignups(previous); // rollback
+      setNotice(`Could not remove ${signup.name}. Please try again.`);
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   return (
@@ -325,7 +352,36 @@ export function AdminDashboard() {
                 <span className="text-starlight min-w-0 flex-1 truncate font-bold">
                   {signup.name}
                 </span>
-                <GenderBadge gender={signup.gender} />
+                {confirmRemoveId === signup.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleRemove(signup)}
+                      disabled={removingId === signup.id}
+                      className="rounded-lg border border-red-500/50 bg-red-500/15 px-2.5 py-1 text-[0.62rem] font-black tracking-[0.12em] text-red-300 uppercase transition-colors duration-200 hover:bg-red-500/25 disabled:opacity-50"
+                    >
+                      {removingId === signup.id ? "…" : "Remove"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmRemoveId(null)}
+                      className="text-starlight-faint hover:text-starlight rounded-lg px-1.5 py-1 text-[0.62rem] font-bold tracking-[0.12em] uppercase transition-colors duration-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <GenderBadge gender={signup.gender} />
+                    <button
+                      onClick={() => setConfirmRemoveId(signup.id)}
+                      disabled={removingId === signup.id}
+                      aria-label={`Remove ${signup.name} from this week`}
+                      title={`Remove ${signup.name} from this week`}
+                      className="text-starlight-faint rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-sm leading-none font-bold transition-colors duration-200 hover:border-red-500/50 hover:bg-red-500/15 hover:text-red-300 disabled:opacity-40"
+                    >
+                      ✕
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>
