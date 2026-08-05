@@ -27,6 +27,12 @@ import type { Gender } from "../../src/lib/types";
  * decide whether it is actually just past noon locally. One of the two is
  * always right; the other exits immediately.
  */
+// TEMPORARY FNL: this week is a rained-out reschedule to Friday Night Lights,
+// but this cron is deliberately left Tuesday-only and its noon guard unchanged
+// — do NOT retarget it to Friday. For this one week the commissioner will
+// manually Generate + Publish teams after the Friday 2 PM lock. The normal
+// Tuesday auto-publish path resumes automatically once FRIDAY_NIGHT_LIGHTS is
+// flipped back off in src/lib/cutoff.ts; nothing here needs to change to revert.
 export const config = {
   schedule: "5 17,18 * * 2",
 };

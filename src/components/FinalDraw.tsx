@@ -25,11 +25,12 @@ export function FinalDraw({ draw }: { draw: TeamDraw | null }) {
         <p className="text-neon-yellow text-[0.68rem] font-black tracking-[0.34em] uppercase drop-shadow-[0_0_12px_rgba(240,255,0,0.7)]">
           ★ Final Say ★
         </p>
+        {/* TEMPORARY FNL — normally "Tuesday's Teams" */}
         <h2
           id="final-draw-heading"
           className="text-glow-title mt-1.5 text-2xl font-black tracking-tight uppercase sm:text-3xl"
         >
-          Tuesday&rsquo;s Teams
+          Friday&rsquo;s Teams
         </h2>
         {draw.published_at && (
           <p className="text-starlight-faint mt-1.5 text-[0.68rem] font-bold tracking-[0.2em] uppercase">

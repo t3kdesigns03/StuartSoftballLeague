@@ -37,8 +37,9 @@ export function Header({ subtitle }: { subtitle?: string }) {
           </p>
         ) : (
           <div className="mt-3 flex flex-col items-center gap-2.5">
+            {/* TEMPORARY FNL — normally "Adult coed · Sandlot Tuesdays" */}
             <p className="text-neon-cyan/85 text-[0.68rem] font-bold tracking-[0.28em] uppercase drop-shadow-[0_0_10px_rgba(0,240,255,0.5)] sm:text-xs">
-              Adult coed &middot; Sandlot Tuesdays
+              Adult coed &middot; Friday Night Lights
             </p>
 
             <p className="flex flex-wrap items-baseline justify-center gap-x-2.5 gap-y-1">

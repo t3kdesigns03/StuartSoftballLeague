@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PreviewTeamCard } from "@/components/PreviewTeamCard";
 import {
+  CUTOFF_LABEL,
   currentCutoffInstant,
   formatCountdown,
   isPastCutoff,
@@ -229,8 +230,10 @@ export function TeamPreview({
           <p className="text-glow-title mt-1 text-3xl font-black tabular-nums sm:text-4xl">
             {minutesLeft === null ? "--" : formatCountdown(minutesLeft)}
           </p>
+          {/* TEMPORARY FNL — label follows the cutoff flag: "Friday 2 PM" now,
+              "Tuesday 12 PM" once FRIDAY_NIGHT_LIGHTS is off. */}
           <p className="text-starlight-faint mt-1 text-[0.6rem] font-bold tracking-[0.2em] uppercase">
-            Tuesday 12 PM
+            {CUTOFF_LABEL}
           </p>
         </div>
       )}
