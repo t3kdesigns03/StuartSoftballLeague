@@ -53,7 +53,8 @@ export function Header({ subtitle }: { subtitle?: string }) {
                     "0 0 14px rgba(240,255,0,0.75), 0 0 38px rgba(240,255,0,0.4)",
                 }}
               >
-                6:30 PM
+                {/* TEMPORARY FNL — first pitch 7:30 this week only (revert to "6:30 PM" after Friday's game) */}
+                7:30 PM
               </span>
             </p>
           </div>
