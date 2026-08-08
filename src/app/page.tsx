@@ -2,8 +2,6 @@
 
 import { FinalDraw } from "@/components/FinalDraw";
 import { Header } from "@/components/Header";
-// TEMPORARY FNL — remove this import and <LightsToggle /> below to revert.
-import { LightsToggle } from "@/components/LightsToggle";
 import { SeasonHistory } from "@/components/SeasonHistory";
 import { SignupForm } from "@/components/SignupForm";
 import { SignupList } from "@/components/SignupList";
@@ -23,11 +21,6 @@ export default function HomePage() {
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-12 sm:px-6 sm:py-16">
       <Header />
-
-      {/* TEMPORARY FNL — stadium-lights toggle for this week's Friday game. */}
-      <div className="mt-8">
-        <LightsToggle />
-      </div>
 
       {/*
         The commissioner's published draw always wins. Until they publish, the

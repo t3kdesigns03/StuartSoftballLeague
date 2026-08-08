@@ -9,6 +9,7 @@ import { PaymentRoster } from "@/components/PaymentRoster";
 import { ScoreEntry } from "@/components/ScoreEntry";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TeamCard } from "@/components/TeamCard";
+import { usePublishedHistory } from "@/hooks/usePublishedHistory";
 import { useSignups } from "@/hooks/useSignups";
 import { useTeamDraw } from "@/hooks/useTeamDraw";
 import { formatCountdown, isPastCutoff, minutesToCutoff } from "@/lib/cutoff";
@@ -22,6 +23,10 @@ export function AdminDashboard() {
   const { weekId, setWeekId, signups, setSignups, loading, error } =
     useSignups();
   const { draw, reload: reloadDraw } = useTeamDraw(weekId);
+  // Every published draw, newest first. Used to recover a game that finished
+  // but was never scored before the week rolled over — it no longer shows up as
+  // the current `draw`, but it is still here in history with null scores.
+  const { draws: history, reload: reloadHistory } = usePublishedHistory();
   const [teams, setTeams] = useState<[Team, Team] | null>(null);
   const balance = teams ? describeBalance(teams, signups) : null;
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -41,6 +46,27 @@ export function AdminDashboard() {
   const countdown = formatCountdown(minutesToCutoff(now));
 
   const isLive = Boolean(draw?.published);
+
+  // Score enforcement. The current week's published draw is unscored until the
+  // admin records the result. While that is true we block "Start new week" so
+  // the week can never be rolled over without the game being recorded.
+  const currentNeedsScore =
+    isLive && draw ? draw.score_a === null || draw.score_b === null : false;
+
+  // Recovery: published draws from *earlier* weeks that were never scored. These
+  // are no longer the current `draw`, so their ScoreEntry would otherwise have
+  // vanished — surface them here (newest first) so the result can still be
+  // entered. This is what makes tonight's already-rolled game scorable again.
+  const recoveryDraws = history.filter(
+    (d) =>
+      d.week_id !== weekId && (d.score_a === null || d.score_b === null),
+  );
+
+  // Keep both the current draw and the history in sync after any score save.
+  function reloadAll() {
+    reloadDraw();
+    reloadHistory();
+  }
 
   function handleGenerate() {
     const result = generateTeams(signups);
@@ -90,6 +116,13 @@ export function AdminDashboard() {
   }
 
   async function handleNewWeek() {
+    // Hard guard so the week can never roll with the current game unscored,
+    // even if the button state were somehow stale.
+    if (currentNeedsScore) {
+      setConfirmingReset(false);
+      setNotice("Enter this week's final score before starting a new week.");
+      return;
+    }
     setBusy(true);
     try {
       const next = await startNewWeek();
@@ -208,7 +241,18 @@ export function AdminDashboard() {
             {teams ? "Re-draw teams" : "Generate teams"}
           </button>
 
-          {confirmingReset ? (
+          {currentNeedsScore ? (
+            // Score-required gate: the live draw has no result yet, so rolling
+            // the week is disabled until the final score is saved below.
+            <div className="border-neon-yellow/45 bg-neon-yellow/[0.06] flex flex-1 flex-col justify-center rounded-xl border-2 px-4 py-3 text-center">
+              <p className="text-neon-yellow text-[0.7rem] font-black tracking-[0.12em] uppercase">
+                Enter final score before starting a new week
+              </p>
+              <p className="text-starlight-faint mt-1 text-[0.62rem] font-semibold tracking-wide">
+                Save this week&rsquo;s result below to unlock.
+              </p>
+            </div>
+          ) : confirmingReset ? (
             <div className="flex flex-1 gap-2">
               <button
                 onClick={handleNewWeek}
@@ -388,7 +432,16 @@ export function AdminDashboard() {
         </section>
       )}
 
-      {isLive && draw && <ScoreEntry draw={draw} onSaved={reloadDraw} />}
+      {isLive && draw && <ScoreEntry draw={draw} onSaved={reloadAll} />}
+
+      {/*
+        Recovery — any earlier published week whose game finished without a
+        recorded score. Kept accessible here (newest first) so the result can
+        still be entered after the week has already rolled over.
+      */}
+      {recoveryDraws.map((d) => (
+        <ScoreEntry key={d.week_id} draw={d} onSaved={reloadAll} recovery />
+      ))}
 
       <PaymentRoster />
 

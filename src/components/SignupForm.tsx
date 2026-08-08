@@ -114,9 +114,8 @@ export function SignupForm({ weekId, signups = [], onSignedUp }: Props) {
           week
         </span>
       </h2>
-      {/* TEMPORARY FNL — normally "Add your name by Tuesday noon to get on a team." */}
       <p className="text-starlight-dim mt-1.5 text-sm">
-        Add your name by Friday 2 PM to get on a team.
+        Add your name by Tuesday noon to get on a team.
       </p>
 
       <div className="mt-6 space-y-6">
@@ -291,8 +290,7 @@ export function SignupForm({ weekId, signups = [], onSignedUp }: Props) {
             role="status"
             className="text-neon-green animate-pop-in rounded-xl border border-[#39ff14]/40 bg-[#39ff14]/10 px-4 py-3 text-sm font-bold shadow-[0_0_28px_-10px_rgba(57,255,20,0.9)]"
           >
-            {/* TEMPORARY FNL — normally "See you Tuesday." */}
-            You&rsquo;re in! See you Friday for Night Lights. ⚾
+            You&rsquo;re in! See you Tuesday. ⚾
           </p>
         )}
 

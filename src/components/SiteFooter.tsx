@@ -28,9 +28,8 @@ export function SiteFooter({ showAdmin = false }: { showAdmin?: boolean }) {
         ))}
       </nav>
 
-      {/* TEMPORARY FNL — first pitch 7:30 this week only (revert to "6:30 PM"; normal copy: "Teams are drawn Tuesdays · Play ball 6:30 PM") */}
       <p className="text-starlight-faint/70 mt-5 text-[0.62rem] font-bold tracking-[0.2em] uppercase">
-        This week: Friday Night Lights · Play ball 7:30 PM
+        Teams are drawn Tuesdays · Play ball 6:30 PM
       </p>
 
       {showAdmin && (
