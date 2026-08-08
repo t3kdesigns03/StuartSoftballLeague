@@ -53,6 +53,11 @@ export function AdminDashboard() {
   const currentNeedsScore =
     isLive && draw ? draw.score_a === null || draw.score_b === null : false;
 
+  // Checkpoint: teams have been generated into local state but never published.
+  // They live only in this browser and would vanish silently when the week
+  // rolls, so block "Start new week" until they are published or discarded.
+  const unpublishedTeams = teams !== null && !isLive;
+
   // Recovery: published draws from *earlier* weeks that were never scored. These
   // are no longer the current `draw`, so their ScoreEntry would otherwise have
   // vanished — surface them here (newest first) so the result can still be
@@ -118,6 +123,11 @@ export function AdminDashboard() {
   async function handleNewWeek() {
     // Hard guard so the week can never roll with the current game unscored,
     // even if the button state were somehow stale.
+    if (unpublishedTeams) {
+      setConfirmingReset(false);
+      setNotice("Publish or clear the generated teams before starting a new week.");
+      return;
+    }
     if (currentNeedsScore) {
       setConfirmingReset(false);
       setNotice("Enter this week's final score before starting a new week.");
@@ -251,6 +261,24 @@ export function AdminDashboard() {
               <p className="text-starlight-faint mt-1 text-[0.62rem] font-semibold tracking-wide">
                 Save this week&rsquo;s result below to unlock.
               </p>
+            </div>
+          ) : unpublishedTeams ? (
+            // Generated-but-unpublished checkpoint: these teams live only in the
+            // browser, so they must be published or discarded before the week
+            // can roll — otherwise they vanish silently on reset.
+            <div className="border-neon-cyan/45 bg-neon-cyan/[0.06] flex flex-1 flex-col justify-center gap-2 rounded-xl border-2 px-4 py-3 text-center">
+              <p className="text-neon-cyan text-[0.7rem] font-black tracking-[0.12em] uppercase">
+                Publish (or clear) these teams before starting a new week
+              </p>
+              <button
+                onClick={() => {
+                  setTeams(null);
+                  setNotice("Cleared the generated teams.");
+                }}
+                className="text-starlight-dim hover:text-starlight self-center text-[0.62rem] font-bold tracking-[0.16em] uppercase underline underline-offset-4 transition-colors duration-200"
+              >
+                Clear these teams
+              </button>
             </div>
           ) : confirmingReset ? (
             <div className="flex flex-1 gap-2">
