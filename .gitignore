@@ -43,3 +43,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scratch / secret notes — never commit
+new*.txt
+
+# temporary recovery script
+recover-lock.mjs
