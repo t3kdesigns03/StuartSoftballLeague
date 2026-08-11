@@ -155,6 +155,23 @@ rendering. All text files are UTF-8.
 - **The commissioner's published draw always wins.** The page renders
   `FinalDraw` instead of `TeamPreview` once `team_draws.published` is true. The
   preview is never the source of truth.
+- **Bonus Ball visibility is participant-only, server-side.** The total and the
+  names come only from `bonus_pool(name)`, gated on the caller being an entrant.
+  Never add a browser read of `bonus_entries` or a public count "for the teaser"
+  — a count is the total (`count × $5`), so exposing it defeats the whole point.
+  The teaser is allowed to know *only* that the flag is on.
+- **Bonus Ball entry is idempotent and flag-gated.** `enter_bonus_ball` refuses
+  when the flag is off and leans on the `(week_id, player_id)` unique index with
+  `on conflict do nothing`, so a re-submit or double-tap never creates a second
+  $5. It shares `check_in`'s find-or-create, so entering also ensures a roster
+  row — but entering the pool and checking in to play are otherwise independent.
+- **The pool resets with the week for free.** Entries are keyed by `week_id` and
+  `bonus_pool` reads whatever `league_state.current_week_id` points at, so
+  **Start New Week** empties the pool report while keeping past entries as
+  history — same "deletes nothing" rule as everything else.
+- **Never trust the local entrant flag.** The browser remembers the entered name
+  in `localStorage` but always re-verifies via `bonus_pool`; the reveal is shown
+  only on the server's `member: true`, so a rolled week closes it automatically.
 
 ---
 
@@ -164,12 +181,20 @@ The browser holds only the publishable key. It may:
 
 - read `signups` (ids only), `league_state`, and `signups_public` (names)
 - call `check_in(name, gender, partner)`
+- call `enter_bonus_ball(name, gender)` and `bonus_pool(name)`
 
-It may **not** touch `players` at all — payment data is neither readable nor
-writable from the browser. `players` is protected twice: RLS has no anon policy
-**and** the grant is explicitly revoked, because Supabase grants `anon` SELECT
-on everything in `public` by default. Don't remove one assuming the other covers
-it.
+It may **not** touch `players` or `bonus_entries` at all — payment data and the
+raw bonus rows are neither readable nor writable from the browser. Both tables
+are protected twice: RLS has no anon policy **and** the grant is explicitly
+revoked, because Supabase grants `anon` SELECT on everything in `public` by
+default. Don't remove one assuming the other covers it.
+
+`bonus_pool(name)` is the *only* path to the pool total and entrant names, and
+it returns them **only** when the caller's name matches an entrant in the open
+week. A non-entrant gets `{ enabled, member: false }` — never a count or a name.
+That participant-only gate is the feature's whole security model; it lives in
+the RPC (server-side), never in the browser. The public `league_state` flag
+reveals only that the feature is *on*, which is all the mystery teaser needs.
 
 Everything privileged goes through `/api/admin/*`, which check the admin cookie
 and use the secret key server-side. `src/lib/supabaseAdmin.ts` imports

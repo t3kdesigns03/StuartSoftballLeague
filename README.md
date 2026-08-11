@@ -130,9 +130,12 @@ and scores have something to attach to — without anyone pressing a button.
 - It is **idempotent** — running twice changes nothing.
 - It produces a **byte-identical** draw to the one browsers locked, which
   `npm run test` asserts directly.
-- Cron has no timezone and Iowa moves between CDT and CST, so it fires at both
-  17:05 and 18:05 UTC on Tuesdays and exits immediately unless the local hour is
-  actually 12.
+- Cron has no timezone and Iowa moves between CDT and CST. Tuesday 18:00 local
+  is 23:00 UTC in summer but 00:00 UTC *Wednesday* in winter, so the schedule
+  (`5 23,0 * * 2,3`) fires four times across both UTC days and each run exits
+  immediately unless the local time is actually **Tuesday, hour 18**. Two of the
+  four firings land on hour 18 of the wrong local day, which is why the guard
+  checks weekday as well as hour.
 
 ### Publishing the draw
 
@@ -174,6 +177,51 @@ The roster is permanent: everyone who has ever checked in stays listed, with a
 count of weeks played. That is also what future history (teams, W/L, scores)
 will hang off.
 
+### Bonus Ball (voluntary $5 pool)
+
+An optional weekly side pool, presented as an ice-cream softball. Ships **off**
+and is switched on from the admin dashboard the week the physical bonus balls
+arrive.
+
+- **Opt-in only, $5 flat, one entry per person per week.** The one-entry rule is
+  a unique index on `bonus_entries (week_id, player_id)`; the RPC's `on conflict
+  do nothing` makes a double-tap a no-op rather than a second obligation.
+- **The pool resets with the week.** Entries are keyed by `week_id`, so rolling
+  the week just changes which week `bonus_pool()` reports on. Nothing is deleted;
+  past pools stay as history.
+- **Participant-only visibility, enforced server-side.** The running total and
+  the list of names come *only* from `bonus_pool(name)`, which returns them
+  solely when the caller's name matches an entrant in the open week. Non-entrants
+  get `{ enabled, member: false }` and can never learn the total or who's in.
+  They can tell the feature is *on* (the `league_state` flag is public) — that's
+  what drives the mystery teaser — but nothing more.
+- **Same double-lock as the roster.** The browser has no direct read or write on
+  `bonus_entries`: RLS has no anon policy **and** the grant is revoked. The only
+  ways in are the two `security definer` RPCs (`enter_bonus_ball`, `bonus_pool`)
+  and the admin route using the secret key.
+- **"Live" without a realtime leak.** Because `bonus_entries` isn't anon-readable
+  it can't be subscribed to from the browser, so the unlocked pool polls every
+  ~12s and refetches on tab focus. The flag itself flips live over the existing
+  `league_state` realtime channel, so enabling it reveals the teaser everywhere
+  without a refresh.
+- **Identity with no accounts.** The name someone enters under is remembered in
+  `localStorage` and re-verified against the server on load. If the week has
+  rolled, the server reports `member: false` and the reveal closes on its own —
+  the local flag is never trusted, only the server's answer.
+
+#### Turning it on
+
+1. Run `supabase/schema.sql` in the SQL editor if you haven't since this feature
+   landed (adds `league_state.bonus_ball_enabled`, the `bonus_entries` table, and
+   the two RPCs). Safe to re-run; it's an additive upgrade.
+2. Deploy the code.
+3. Go to `/admin`, find the **🍦 Bonus Ball** card, and flip the switch on. The
+   teaser appears on the main page immediately for everyone; the opt-in appears
+   on the signup form. Flip it off any time — entries are kept, just hidden.
+
+The $5 amount is `BONUS_ENTRY_FEE` in `src/lib/types.ts`; the total is always
+derived as `entries × $5`, never entered by hand.
+
 ### Weeks
 
 `league_state.current_week_id` decides which `week_id` new check-ins get.
@@ -201,16 +249,19 @@ page; it is not a hardened auth system.
 
 **What the browser can and cannot do.** Anonymous visitors may read `signups`
 (ids only), read `league_state`, read names through the `signups_public` view,
-and call `check_in()`. They have no access to `players` at all — payment status
-is neither readable nor writable from the browser. Rolling the week and toggling
-payment go through `/api/admin/*`, which check the admin cookie and use the
-secret key server-side.
+and call `check_in()`, `enter_bonus_ball()` and `bonus_pool()`. They have no
+access to `players` or `bonus_entries` at all — payment status and the raw
+bonus-pool rows are neither readable nor writable from the browser. Rolling the
+week, toggling payment, and flipping the Bonus Ball flag go through
+`/api/admin/*`, which check the admin cookie and use the secret key server-side.
 
-`players` is protected twice over: RLS has no anon policy, *and* the grant is
-explicitly revoked. Supabase grants `anon` SELECT on everything in `public` by
-default, so without that revoke, disabling RLS on the table for even a moment
-would expose the roster. Both locks are in `schema.sql`; don't remove one
-assuming the other has it covered.
+`players` **and** `bonus_entries` are each protected twice over: RLS has no anon
+policy, *and* the grant is explicitly revoked. Supabase grants `anon` SELECT on
+everything in `public` by default, so without that revoke, disabling RLS on the
+table for even a moment would expose the data. Both locks are in `schema.sql`;
+don't remove one assuming the other has it covered. The bonus-pool total and
+names reach the browser only through `bonus_pool()`, which returns them solely
+to a caller who is themselves in the pool.
 
 ---
 
@@ -225,10 +276,14 @@ src/
 │   ├── api/admin/players/route.ts  Roster read + paid toggle (admin only)
 │   ├── api/admin/teams/route.ts    Publish / retract the draw (admin only)
 │   ├── api/admin/week/route.ts     Start a new week (admin only)
+│   ├── api/admin/bonus/route.ts    Bonus Ball flag + entrants (admin only)
 │   ├── layout.tsx
 │   └── globals.css                 Tailwind theme: cosmic neon tokens
 ├── components/
-│   ├── SignupForm.tsx              Name + gender check-in form
+│   ├── SignupForm.tsx              Name + gender check-in form (+ bonus opt-in)
+│   ├── BonusBallToggle.tsx         The $5 ice-cream opt-in on the form
+│   ├── BonusBallPanel.tsx          Main-page teaser / participant-only pool
+│   ├── BonusBallAdmin.tsx          Admin switch + entrant list
 │   ├── PaymentRoster.tsx           Permanent roster + season dues toggles
 │   ├── FinalDraw.tsx               Published teams on the public page
 │   ├── PublishedTeamCard.tsx       One persisted team snapshot
@@ -243,6 +298,7 @@ src/
 │   └── SoftballIcon.tsx
 ├── hooks/
 │   ├── useSignups.ts               Fetch + realtime subscription
+│   ├── useBonusBall.ts             Flag, entrant identity, gated pool fetch
 │   └── useTeamDraw.ts              Published draw + realtime subscription
 └── lib/
     ├── supabase.ts                 Browser client (publishable key)

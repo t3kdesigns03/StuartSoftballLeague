@@ -1,5 +1,6 @@
 "use client";
 
+import { BonusBallPanel } from "@/components/BonusBallPanel";
 import { FinalDraw } from "@/components/FinalDraw";
 import { Header } from "@/components/Header";
 import { SeasonHistory } from "@/components/SeasonHistory";
@@ -7,6 +8,7 @@ import { SignupForm } from "@/components/SignupForm";
 import { SignupList } from "@/components/SignupList";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TeamPreview } from "@/components/TeamPreview";
+import { useBonusBall } from "@/hooks/useBonusBall";
 import { usePublishedHistory } from "@/hooks/usePublishedHistory";
 import { useSignups } from "@/hooks/useSignups";
 import { useTeamDraw } from "@/hooks/useTeamDraw";
@@ -15,6 +17,7 @@ export default function HomePage() {
   const { weekId, signups, loading, error, reload } = useSignups();
   const { draw } = useTeamDraw(weekId);
   const { draws: history } = usePublishedHistory();
+  const bonus = useBonusBall();
 
   const published = Boolean(draw?.published);
 
@@ -35,12 +38,24 @@ export default function HomePage() {
         )}
       </div>
 
+      {/*
+        Bonus Ball: a mystery teaser to non-entrants, the live pool to entrants.
+        Renders nothing at all while the feature flag is off. Sits above the
+        signup grid so the CTA and the opt-in it links to read as one flow.
+      */}
+      <BonusBallPanel bonus={bonus} />
+
       <div
         className={`grid gap-5 sm:gap-6 md:grid-cols-2 md:items-start ${
           published ? "mt-12" : "mt-6"
         }`}
       >
-        <SignupForm weekId={weekId} signups={signups} onSignedUp={reload} />
+        <SignupForm
+          weekId={weekId}
+          signups={signups}
+          onSignedUp={reload}
+          bonus={bonus}
+        />
         <SignupList signups={signups} loading={loading} error={error} />
       </div>
 

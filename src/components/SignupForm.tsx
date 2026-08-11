@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { BonusBallToggle } from "@/components/BonusBallToggle";
+import type { UseBonusBall } from "@/hooks/useBonusBall";
 import { suggestPartners } from "@/lib/partnerSuggest";
 import { supabase } from "@/lib/supabase";
 import type { Gender, Signup } from "@/lib/types";
@@ -12,6 +14,8 @@ type Props = {
   signups?: Signup[];
   /** Called after a successful insert so the list can update instantly. */
   onSignedUp?: () => void;
+  /** Bonus Ball state, lifted to the page and shared with the main-page panel. */
+  bonus?: UseBonusBall;
 };
 
 const GENDER_OPTIONS: {
@@ -39,11 +43,17 @@ const GENDER_OPTIONS: {
   },
 ];
 
-export function SignupForm({ weekId, signups = [], onSignedUp }: Props) {
+export function SignupForm({
+  weekId,
+  signups = [],
+  onSignedUp,
+  bonus,
+}: Props) {
   const [name, setName] = useState("");
   const [gender, setGender] = useState<Gender | null>(null);
   const [withPartner, setWithPartner] = useState(false);
   const [partner, setPartner] = useState("");
+  const [wantsBonus, setWantsBonus] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -94,11 +104,26 @@ export function SignupForm({ weekId, signups = [], onSignedUp }: Props) {
       return;
     }
 
+    // Bonus Ball is a separate, idempotent opt-in. It runs only if the feature
+    // is on and the box is ticked, and a failure here never undoes the
+    // check-in that just succeeded — we surface a soft note instead.
+    let bonusFailed = false;
+    if (wantsBonus && bonus?.enabled && !bonus.entered) {
+      const ok = await bonus.enter(trimmed, gender);
+      if (!ok) bonusFailed = true;
+    }
+
     setStatus("done");
     setName("");
     setGender(null);
     setWithPartner(false);
     setPartner("");
+    setWantsBonus(false);
+    setError(
+      bonusFailed
+        ? "You're checked in, but the Bonus Ball entry didn't go through — try the toggle again."
+        : null,
+    );
     onSignedUp?.();
     setTimeout(() => setStatus("idle"), 2600);
   }
@@ -276,6 +301,15 @@ export function SignupForm({ weekId, signups = [], onSignedUp }: Props) {
             </div>
           )}
         </div>
+
+        {/* Bonus Ball opt-in — only while the commissioner has it switched on. */}
+        {bonus?.enabled && (
+          <BonusBallToggle
+            selected={wantsBonus}
+            onChange={setWantsBonus}
+            entered={bonus.entered}
+          />
+        )}
 
         {error && (
           <p

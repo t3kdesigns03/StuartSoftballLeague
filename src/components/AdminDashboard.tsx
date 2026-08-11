@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BonusBallAdmin } from "@/components/BonusBallAdmin";
 import { GenderBadge } from "@/components/GenderBadge";
 import { Header } from "@/components/Header";
 import { PaymentRoster } from "@/components/PaymentRoster";
@@ -470,6 +471,8 @@ export function AdminDashboard() {
       {recoveryDraws.map((d) => (
         <ScoreEntry key={d.week_id} draw={d} onSaved={reloadAll} recovery />
       ))}
+
+      <BonusBallAdmin />
 
       <PaymentRoster />
 

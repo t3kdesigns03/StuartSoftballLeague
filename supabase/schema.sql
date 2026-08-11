@@ -123,6 +123,13 @@ create table if not exists public.league_state (
   constraint league_state_single_row check (id = 1)
 );
 
+-- Bonus Ball: a voluntary $5 side pool that resets with the week. Off by
+-- default so the feature ships dark and is switched on by the commissioner the
+-- week the ice-cream balls arrive. Public-readable (it is only a boolean; the
+-- pool total and entrant list are NOT here — those go through bonus_pool()).
+alter table public.league_state
+  add column if not exists bonus_ball_enabled boolean not null default false;
+
 insert into public.league_state (id, current_week_id)
 values (1, to_char(now(), 'IYYY"-W"IW'))
 on conflict (id) do nothing;
@@ -340,3 +347,168 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   alter publication supabase_realtime add table public.team_draws;
 exception when duplicate_object then null; end $$;
+
+-- ============================================================================
+-- Bonus Ball — voluntary $5 weekly side pool
+--
+-- Rules encoded here:
+--   - opt-in only, $5 flat, at most ONE entry per person per week
+--   - the pool resets with the week (entries are keyed by week_id; rolling the
+--     week simply changes which week bonus_pool() reports on — nothing is
+--     deleted, so past pools survive as history)
+--   - the running total and the list of entrants are visible ONLY to people who
+--     are themselves in the current week's pool. Non-entrants can learn that the
+--     feature is ON (the league_state flag is public) but never the total or the
+--     names — that gate is enforced in bonus_pool() below, server-side, not in
+--     the browser.
+--
+-- Access model mirrors `players`: the browser gets NO direct read or write on
+-- bonus_entries. Both the RLS policy (none) and the table grant (revoked) deny
+-- anon, so the only ways in are the two SECURITY DEFINER functions here and the
+-- admin routes using the secret key. Two independent locks, exactly like the
+-- roster table.
+-- ============================================================================
+create table if not exists public.bonus_entries (
+  id         uuid        primary key default gen_random_uuid(),
+  player_id  uuid        not null references public.players(id) on delete cascade,
+  week_id    text        not null,
+  created_at timestamptz not null default now()
+);
+
+-- One entry per person per week. This is the server-side enforcement of the
+-- "max one entry" rule; the RPC's ON CONFLICT DO NOTHING leans on it.
+create unique index if not exists bonus_entries_week_player_unique_idx
+  on public.bonus_entries (week_id, player_id);
+
+create index if not exists bonus_entries_week_id_created_at_idx
+  on public.bonus_entries (week_id, created_at);
+
+alter table public.bonus_entries enable row level security;
+
+-- No anon policy (RLS denies by default) AND the grant is revoked outright, so
+-- entrant names stay private even if RLS were ever disabled by accident. The
+-- SECURITY DEFINER functions below read it with the owner's rights instead.
+revoke all on public.bonus_entries from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- enter_bonus_ball() — opt into the current week's pool.
+--
+-- Find-or-create the player (same idempotent path as check_in), then record one
+-- entry for the open week. Refuses when the feature flag is off, so the pool can
+-- never be entered while it is disabled. Entering twice is a no-op, not an
+-- error, so a double-tap or a re-submit can't create a second $5 obligation.
+-- ---------------------------------------------------------------------------
+create or replace function public.enter_bonus_ball(
+  p_name   text,
+  p_gender text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_name    text := trim(p_name);
+  v_week    text;
+  v_enabled boolean;
+  v_player  uuid;
+begin
+  if v_name is null or char_length(v_name) = 0 or char_length(v_name) > 60 then
+    raise exception 'invalid name' using errcode = '22000';
+  end if;
+  if p_gender not in ('guy', 'girl') then
+    raise exception 'invalid gender' using errcode = '22000';
+  end if;
+
+  select current_week_id, bonus_ball_enabled
+    into v_week, v_enabled
+    from public.league_state where id = 1;
+
+  if not coalesce(v_enabled, false) then
+    raise exception 'bonus ball is not open' using errcode = '22000';
+  end if;
+
+  insert into public.players (name, gender)
+  values (v_name, p_gender)
+  on conflict (lower(trim(name))) do update
+    set gender = excluded.gender
+  returning id into v_player;
+
+  insert into public.bonus_entries (player_id, week_id)
+  values (v_player, v_week)
+  on conflict (week_id, player_id) do nothing;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- bonus_pool() — the participant-only view of the current week's pool.
+--
+-- Returns a small JSON object. The gate is the whole point: the total and the
+-- names are included ONLY when the caller proves they are in this week's pool by
+-- passing a name that matches an entrant. Everyone else gets { enabled, member:
+-- false } and learns nothing about who is in or how much is in it.
+--
+--   feature off      -> { "enabled": false }
+--   on, not an entrant -> { "enabled": true, "member": false }
+--   on, an entrant   -> { "enabled": true, "member": true, "count": N,
+--                          "total_cents": N*500, "names": [ ... ] }
+-- ---------------------------------------------------------------------------
+create or replace function public.bonus_pool(p_name text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_name    text := lower(trim(coalesce(p_name, '')));
+  v_week    text;
+  v_enabled boolean;
+  v_member  boolean;
+  v_count   integer;
+  v_names   jsonb;
+begin
+  select current_week_id, bonus_ball_enabled
+    into v_week, v_enabled
+    from public.league_state where id = 1;
+
+  if not coalesce(v_enabled, false) then
+    return jsonb_build_object('enabled', false);
+  end if;
+
+  v_member := exists (
+    select 1
+      from public.bonus_entries b
+      join public.players p on p.id = b.player_id
+     where b.week_id = v_week
+       and lower(trim(p.name)) = v_name
+       and v_name <> ''
+  );
+
+  if not v_member then
+    return jsonb_build_object('enabled', true, 'member', false);
+  end if;
+
+  select count(*),
+         coalesce(
+           jsonb_agg(p.name order by b.created_at),
+           '[]'::jsonb
+         )
+    into v_count, v_names
+    from public.bonus_entries b
+    join public.players p on p.id = b.player_id
+   where b.week_id = v_week;
+
+  return jsonb_build_object(
+    'enabled', true,
+    'member', true,
+    'count', v_count,
+    'total_cents', v_count * 500,
+    'names', v_names
+  );
+end;
+$$;
+
+revoke all on function public.enter_bonus_ball(text, text) from public;
+revoke all on function public.bonus_pool(text)             from public;
+grant execute on function public.enter_bonus_ball(text, text) to anon, authenticated;
+grant execute on function public.bonus_pool(text)             to anon, authenticated;

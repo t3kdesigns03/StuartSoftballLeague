@@ -41,6 +41,27 @@ export const GENDER_LABELS: Record<Gender, string> = {
 /** One-time season fee, in whole dollars. From the flyer. */
 export const SEASON_FEE = 20;
 
+/** Flat entry for the voluntary weekly Bonus Ball pool, in whole dollars. */
+export const BONUS_ENTRY_FEE = 5;
+
+/**
+ * The shape bonus_pool() returns — deliberately narrow. The count, total and
+ * names are present ONLY when the caller is a member of the current week's pool;
+ * everyone else gets at most { enabled, member: false } and can learn nothing
+ * about the size of the pool or who is in it. The gate is enforced server-side
+ * in the RPC, not here.
+ */
+export type BonusPool =
+  | { enabled: false }
+  | { enabled: true; member: false }
+  | {
+      enabled: true;
+      member: true;
+      count: number;
+      total_cents: number;
+      names: string[];
+    };
+
 /**
  * A team as stored in team_draws.teams — a snapshot, names included, so the
  * public page can render it without any access to the roster table.

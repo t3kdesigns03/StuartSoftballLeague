@@ -1,4 +1,4 @@
-import type { Gender, PublishedTeam } from "@/lib/types";
+import type { BonusPool, Gender, PublishedTeam } from "@/lib/types";
 
 /**
  * Hand-written typing for the tables and views this app touches.
@@ -61,9 +61,45 @@ export type Database = {
         Relationships: [];
       };
       league_state: {
-        Row: { id: number; current_week_id: string; updated_at: string };
-        Insert: { id?: number; current_week_id: string; updated_at?: string };
-        Update: { id?: number; current_week_id?: string; updated_at?: string };
+        Row: {
+          id: number;
+          current_week_id: string;
+          updated_at: string;
+          bonus_ball_enabled: boolean;
+        };
+        Insert: {
+          id?: number;
+          current_week_id: string;
+          updated_at?: string;
+          bonus_ball_enabled?: boolean;
+        };
+        Update: {
+          id?: number;
+          current_week_id?: string;
+          updated_at?: string;
+          bonus_ball_enabled?: boolean;
+        };
+        Relationships: [];
+      };
+      bonus_entries: {
+        Row: {
+          id: string;
+          player_id: string;
+          week_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          player_id: string;
+          week_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          player_id?: string;
+          week_id?: string;
+          created_at?: string;
+        };
         Relationships: [];
       };
       team_draws: {
@@ -117,6 +153,16 @@ export type Database = {
       check_in: {
         Args: { p_name: string; p_gender: Gender; p_partner?: string | null };
         Returns: undefined;
+      };
+      /** Opt into the current week's $5 bonus-ball pool (idempotent, flag-gated). */
+      enter_bonus_ball: {
+        Args: { p_name: string; p_gender: Gender };
+        Returns: undefined;
+      };
+      /** Participant-only view of the current week's pool. See BonusPool. */
+      bonus_pool: {
+        Args: { p_name: string };
+        Returns: BonusPool;
       };
     };
     Enums: Record<never, never>;
