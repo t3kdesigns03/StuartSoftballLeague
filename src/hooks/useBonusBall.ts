@@ -82,8 +82,10 @@ export function useBonusBall() {
       );
       setEnabled(flag);
       setLoading(false);
-      if (flag) void fetchPool();
-      else setPool(null);
+      // Fetching is driven reactively by the effect below (fires the moment the
+      // flag and an identity are both known), so we only need to clear a stale
+      // pool if the feature is off.
+      if (!flag) setPool(null);
     };
 
     void readFlag();
@@ -112,10 +114,15 @@ export function useBonusBall() {
     };
   }, [fetchPool]);
 
-  // Poll + refetch on focus while the feature is on and we have an identity.
+  // As soon as the feature is on and we have an identity, fetch immediately —
+  // then keep it fresh with a poll and on tab focus. The immediate fetch is what
+  // makes a returning member (identity from localStorage) see the live pool on
+  // load without waiting for the first poll tick, and it re-runs if the identity
+  // arrives after the flag (any mount-ordering hiccup).
   useEffect(() => {
     if (!enabled || !entrantName) return;
 
+    void fetchPool();
     const id = window.setInterval(() => void fetchPool(), POLL_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") void fetchPool();
@@ -158,6 +165,43 @@ export function useBonusBall() {
     [fetchPool],
   );
 
+  /**
+   * Reveal the pool for someone who is *already* in it, without entering again.
+   *
+   * Asks the server (the same membership-gated RPC), and only if it confirms
+   * membership do we adopt that name as this browser's identity — so a member
+   * arriving on a new device or after clearing storage can surface the live
+   * "who's in" view by typing their name, and it sticks for next time. A
+   * non-member learns nothing (the gate returns `member: false`) and no identity
+   * is stored. This is a read only; it never records an entry.
+   */
+  const reveal = useCallback(
+    async (name: string): Promise<"member" | "not-member" | "error"> => {
+      const trimmed = name.trim();
+      if (!trimmed) return "error";
+
+      const { data, error } = await supabase.rpc("bonus_pool", {
+        p_name: trimmed,
+      });
+      if (error || !data) return "error";
+
+      const result = data as BonusPool;
+      if (result.enabled && result.member) {
+        nameRef.current = trimmed;
+        setEntrantName(trimmed);
+        try {
+          window.localStorage.setItem(IDENTITY_KEY, trimmed);
+        } catch {
+          // Non-fatal — revealed this session even without storage.
+        }
+        setPool(result);
+        return "member";
+      }
+      return "not-member";
+    },
+    [],
+  );
+
   return {
     enabled,
     entered,
@@ -165,6 +209,7 @@ export function useBonusBall() {
     pool,
     loading,
     enter,
+    reveal,
     refresh: fetchPool,
   };
 }

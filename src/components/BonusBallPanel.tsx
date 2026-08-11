@@ -11,18 +11,14 @@ import type { Signup } from "@/lib/types";
  * The main-page Bonus Ball spot — the feature's home, not a small add-on.
  *
  *   - feature off        -> renders nothing
- *   - on, not an entrant -> a mystery teaser (no total, no names) plus an inline
- *                           name-only join for players already on this week's
- *                           roster
+ *   - on, not an entrant -> a mystery teaser (no total, no names) plus a
+ *                           name box that reveals the pool for existing members
+ *                           and lets roster players join
  *   - on, an entrant     -> the live reveal: running pool total and the list of
  *                           who's in, refreshed by the hook
  *
  * The reveal only ever shows what the server returned for a confirmed member;
  * this component never computes or displays a total for a non-entrant.
- *
- * Late-join gate: the RPC is unchanged, so "must be signed up first" is enforced
- * here against the week's roster. That lookup also hands us the player's gender,
- * so a late joiner opts in with their name alone — no second gender question.
  */
 export function BonusBallPanel({
   bonus,
@@ -100,7 +96,7 @@ export function BonusBallPanel({
     );
   }
 
-  // --- Non-entrant: mystery teaser + name-only join --------------------------
+  // --- Non-entrant: mystery teaser + reveal / join --------------------------
   return (
     <section
       aria-label="Bonus Ball"
@@ -152,19 +148,25 @@ export function BonusBallPanel({
         </div>
       </div>
 
-      <JoinByName bonus={bonus} signups={signups} />
+      <RevealOrJoin bonus={bonus} signups={signups} />
     </section>
   );
 }
 
 /**
- * Name-only opt-in for someone already checked in this week. Validates the name
- * against the roster (which also supplies the gender the RPC needs), so joining
- * is a couple of taps: type or tap your name, then Join. A name that isn't on
- * the roster is sent to sign up first rather than silently creating a stray
- * player row.
+ * The non-member's way in. Reveal-first: type your name and we ask the server
+ * (through the same membership-gated RPC) whether you're already in.
+ *
+ *   - already in  -> the pool opens instantly, no re-entry, no charge. This is
+ *                    what lets a member on a fresh device / cleared storage see
+ *                    the live "who's in" view again just by naming themselves.
+ *   - on the roster but not in yet -> an explicit "Join for $5" step, so peeking
+ *                    never joins you by accident.
+ *   - not on the roster -> sign up for the week first.
+ *
+ * Reading membership never records an entry; only the explicit Join does.
  */
-function JoinByName({
+function RevealOrJoin({
   bonus,
   signups,
 }: {
@@ -172,56 +174,71 @@ function JoinByName({
   signups: Signup[];
 }) {
   const [name, setName] = useState("");
-  const [status, setStatus] = useState<"idle" | "saving">("idle");
+  const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<
     null | "empty" | "notfound" | "pick" | "failed"
   >(null);
+  const [offer, setOffer] = useState<Signup | null>(null);
 
-  // Live roster matches for what they've typed — tap one to join in one move.
+  // Roster matches for what they've typed — tap one to check in a single move.
   const matches = useMemo(() => {
     const q = name.trim().toLowerCase();
     if (q.length < 1) return [];
     return signups.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 4);
   }, [name, signups]);
 
-  async function join(target?: Signup) {
+  function reset() {
     setProblem(null);
-    const typed = name.trim();
+    setOffer(null);
+  }
 
-    let match = target;
-    if (!match) {
-      if (!typed) {
-        setProblem("empty");
-        return;
-      }
-      match =
-        signups.find((s) => s.name.toLowerCase() === typed.toLowerCase()) ??
-        (matches.length === 1 ? matches[0] : undefined);
-    }
-    if (!match) {
-      // Several roster names contain what they typed but none is exact — point
-      // them at the tap-to-join chips rather than telling them they're not on
-      // the roster (they might be).
-      setProblem(matches.length > 1 ? "pick" : "notfound");
+  // Step 1: are they already in? Reveal for members; otherwise decide if they
+  // can join.
+  async function see(target?: Signup) {
+    reset();
+    const candidate = (target?.name ?? name).trim();
+    if (!candidate) {
+      setProblem("empty");
       return;
     }
 
-    setStatus("saving");
-    // Use the roster's canonical spelling + gender; the RPC is idempotent, so
-    // if they were already in, this simply confirms and reveals the pool.
-    const ok = await bonus.enter(match.name, match.gender);
-    setStatus("idle");
-    if (!ok) setProblem("failed");
-    // On success the parent re-renders straight into the live reveal.
+    setBusy(true);
+    const result = await bonus.reveal(candidate);
+    setBusy(false);
+
+    if (result === "member") return; // parent flips to the live reveal
+    if (result === "error") {
+      setProblem("failed");
+      return;
+    }
+
+    // Not in the pool yet — can they join? (needs a roster row for gender)
+    const match =
+      target ??
+      signups.find((s) => s.name.toLowerCase() === candidate.toLowerCase()) ??
+      (matches.length === 1 ? matches[0] : undefined);
+
+    if (match) setOffer(match);
+    else setProblem(matches.length > 1 ? "pick" : "notfound");
   }
 
-  const saving = status === "saving";
+  // Step 2: the deliberate, paid opt-in.
+  async function join(target: Signup) {
+    setBusy(true);
+    const ok = await bonus.enter(target.name, target.gender);
+    setBusy(false);
+    if (!ok) {
+      setOffer(null);
+      setProblem("failed");
+    }
+    // success -> parent flips to the live reveal
+  }
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        void join();
+        void see();
       }}
       className="relative z-10 mt-5 border-t border-white/10 pt-5"
     >
@@ -229,7 +246,7 @@ function JoinByName({
         htmlFor="bonus-join-name"
         className="text-neon-magenta text-[0.62rem] font-black tracking-[0.24em] uppercase"
       >
-        Already signed up? Join in seconds
+        In the pool? Enter your name to see who&rsquo;s in
       </label>
 
       <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row">
@@ -244,14 +261,14 @@ function JoinByName({
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            if (problem) setProblem(null);
+            reset();
           }}
           placeholder="Your name"
           className="text-starlight placeholder:text-starlight-faint/60 focus:border-neon-magenta/70 focus:shadow-[0_0_0_4px_rgba(255,0,170,0.14),0_0_28px_-8px_rgba(255,0,170,0.85)] w-full rounded-xl border border-white/10 bg-black/35 px-4 py-3.5 text-base outline-none transition duration-300 sm:flex-1"
         />
         <button
           type="submit"
-          disabled={saving}
+          disabled={busy}
           className="shrink-0 rounded-xl px-5 py-3.5 text-base font-black tracking-[0.12em] text-black uppercase transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
           style={{
             background: "linear-gradient(100deg, #ff00aa 0%, #f0ff00 100%)",
@@ -259,18 +276,18 @@ function JoinByName({
               "0 0 30px -8px rgba(255,0,170,0.9), 0 10px 26px -12px rgba(240,255,0,0.7)",
           }}
         >
-          {saving ? "Joining…" : `Join · $${BONUS_ENTRY_FEE}`}
+          {busy ? "Checking…" : "See who's in"}
         </button>
       </div>
 
-      {/* Tap-to-join suggestions from this week's roster. */}
-      {matches.length > 0 && !saving && (
+      {/* Tap-to-select suggestions from this week's roster. */}
+      {matches.length > 0 && !busy && !offer && (
         <div className="mt-2.5 flex flex-wrap gap-2">
           {matches.map((s) => (
             <button
               key={s.id}
               type="button"
-              onClick={() => void join(s)}
+              onClick={() => void see(s)}
               className="text-starlight-dim hover:border-neon-magenta/60 hover:text-neon-magenta rounded-full border border-white/15 bg-white/[0.03] px-3 py-1.5 text-xs font-bold transition-all duration-300"
             >
               <span aria-hidden="true" className="mr-1">
@@ -282,15 +299,51 @@ function JoinByName({
         </div>
       )}
 
+      <p className="text-starlight-faint mt-2.5 text-[0.7rem] leading-relaxed">
+        Already in? You&rsquo;ll go straight to the pool — no second entry. New?
+        Joining is ${BONUS_ENTRY_FEE}, one per person (cash to the commissioner;
+        the app just tracks who&rsquo;s in).
+      </p>
+
+      {/* Explicit join step for a roster player who isn't in yet. */}
+      {offer && (
+        <div className="animate-pop-in mt-3 rounded-xl border-2 border-neon-magenta/45 bg-neon-magenta/[0.08] p-3.5">
+          <p className="text-starlight text-sm font-bold">
+            {offer.name}, you&rsquo;re not in the pool yet.
+          </p>
+          <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void join(offer)}
+              className="shrink-0 rounded-xl px-4 py-3 text-sm font-black tracking-[0.12em] text-black uppercase transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
+              style={{
+                background: "linear-gradient(100deg, #ff00aa 0%, #f0ff00 100%)",
+                boxShadow: "0 0 26px -8px rgba(255,0,170,0.9)",
+              }}
+            >
+              {busy ? "Joining…" : `Join for $${BONUS_ENTRY_FEE}`}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="text-starlight-dim rounded-xl border-2 border-white/12 bg-white/[0.03] px-4 py-3 text-sm font-bold tracking-[0.1em] uppercase transition-all duration-300 hover:border-white/25"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {problem === "empty" && (
         <p role="alert" className="text-starlight-dim mt-2.5 text-xs font-semibold">
-          Enter your name to join the pool.
+          Enter your name first.
         </p>
       )}
 
       {problem === "pick" && (
         <p role="alert" className="text-starlight-dim mt-2.5 text-xs font-semibold">
-          More than one match — tap your name above to join.
+          More than one match — tap your name above.
         </p>
       )}
 
@@ -306,7 +359,7 @@ function JoinByName({
           >
             Sign up for the week
           </a>{" "}
-          first, then come back to join.
+          first, then come back.
         </p>
       )}
 
@@ -315,7 +368,7 @@ function JoinByName({
           role="alert"
           className="mt-2.5 rounded-xl border border-red-500/35 bg-red-500/10 px-3.5 py-2.5 text-xs font-semibold text-red-300"
         >
-          Couldn&rsquo;t add you to the pool. Please try again.
+          Something went wrong. Please try again.
         </p>
       )}
     </form>
