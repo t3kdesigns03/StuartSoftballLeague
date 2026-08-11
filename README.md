@@ -1,8 +1,8 @@
 # Stuart Softball League '26
 
 Weekly check-in + random team generator for an adult coed softball league.
-Players check in through Tuesday noon; the teams lock at noon and are posted
-for that night's games.
+Players check in through Tuesday 6 PM; the teams are decided at 6 PM and
+posted for that night's games.
 
 - **Public page** (`/`) — check-in form, live list of who's playing, countdown to the draw, and the published teams once they're up
 - **Admin page** (`/admin`) — password protected; draws and publishes teams, tracks season dues, starts a new week
@@ -97,10 +97,10 @@ leave the teams two players apart.
 Re-running "Generate teams" re-draws from scratch and stores nothing, so a
 re-draw is free.
 
-### The Tuesday noon lock
+### The Tuesday 6 PM lock
 
 The public page shows a live preview that reshuffles every 8–12 seconds, with a
-"Roll the dice" button on a 12-second cooldown. At **Tuesday 12:00 noon** it
+"Roll the dice" button on a 12-second cooldown. At **Tuesday 6:00 PM** it
 stops moving and locks.
 
 The locked draw is **deterministic**: it is regenerated from
@@ -115,14 +115,14 @@ Two things are needed for that, not one:
 - a canonical **input order** — `generateTeams` walks the array as given, and
   `created_at` ties are unordered in Postgres.
 
-The locked roster is also **frozen to check-ins recorded before noon**. Late
+The locked roster is also **frozen to check-ins recorded before 6 PM**. Late
 arrivals still appear in the signup list, they just don't disturb teams people
 have already read.
 
 ### Auto-publish
 
 `netlify/functions/auto-publish.mts` runs on a schedule and writes that same
-draw to `team_draws` a few minutes after noon, so the week becomes real history
+draw to `team_draws` a few minutes after 6 PM, so the week becomes real history
 and scores have something to attach to — without anyone pressing a button.
 
 - It **never overrides a manual publish**. If you already pressed Publish, it
@@ -153,11 +153,11 @@ public page picks it up over realtime — no refresh needed.
 
 ### The cutoff
 
-`src/lib/cutoff.ts` computes time until **Tuesday 12:00** in `America/Chicago`,
+`src/lib/cutoff.ts` computes time until **Tuesday 18:00** in `America/Chicago`,
 handling CDT/CST automatically.
 
 The cutoff is hard for the *preview* — it stops reshuffling and locks — but
-deliberately soft for *you*. Check-in stays open past noon, the admin can draw
+deliberately soft for *you*. Check-in stays open past 6 PM, the admin can draw
 and publish at any hour, and nothing about posting teams is gated on a clock.
 A hard lock on the admin side would mean a wrong clock or a bad timezone could
 leave you unable to post teams on game night, discovered at the worst possible
@@ -232,7 +232,7 @@ src/
 │   ├── PaymentRoster.tsx           Permanent roster + season dues toggles
 │   ├── FinalDraw.tsx               Published teams on the public page
 │   ├── PublishedTeamCard.tsx       One persisted team snapshot
-│   ├── TeamPreview.tsx             Live preview, dice roll, noon lock
+│   ├── TeamPreview.tsx             Live preview, dice roll, 6 PM lock
 │   ├── PreviewTeamCard.tsx         One preview team with Home/Away banner
 │   ├── SignupList.tsx              Live "this week's signups" list
 │   ├── AdminDashboard.tsx          Generate teams / start new week
@@ -249,7 +249,7 @@ src/
     ├── supabaseAdmin.ts            Server-only client (secret key)
     ├── teams.ts                    Shuffle + balanced deal + captains
     ├── week.ts                     Current week / start new week
-    ├── cutoff.ts                   Tuesday 12 PM cutoff (America/Chicago)
+    ├── cutoff.ts                   Tuesday 6 PM cutoff (America/Chicago)
     ├── teamNames.ts                Off-the-wall weekly team names
     ├── adminAuth.ts                Cookie + password verification
     ├── types.ts
@@ -330,7 +330,7 @@ var and redeploying does not un-publish it.
 
 | When | What |
 | --- | --- |
-| Through Tuesday noon | Players check in; the preview reshuffles live |
-| Tuesday 12:00 | Teams lock. Auto-publish writes them to the database |
+| Through Tuesday 6 PM | Players check in; the preview reshuffles live |
+| Tuesday 18:00 | Teams lock. Auto-publish writes them to the database |
 | Tuesday evening | Play ball at 6:30 |
 | After Tuesday's game | Admin hits **Start new week** to open signups for next week |

@@ -20,7 +20,22 @@ export function DrawCountdown({ checkedIn }: { checkedIn: number }) {
     const tick = () => setMinutes(minutesToCutoff());
     tick();
     const id = setInterval(tick, 30_000);
-    return () => clearInterval(id);
+
+    // Phones throttle or suspend timers in a backgrounded tab, and iOS restores
+    // pages from the bfcache without restarting them, so a countdown can be
+    // frozen at whatever it read when the screen locked. Re-read the clock on
+    // resume instead of waiting up to 30s for the next tick.
+    const resync = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", resync);
+    window.addEventListener("pageshow", resync);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", resync);
+      window.removeEventListener("pageshow", resync);
+    };
   }, []);
 
   const days = minutes === null ? 0 : Math.floor(minutes / 1440);
@@ -71,7 +86,8 @@ export function DrawCountdown({ checkedIn }: { checkedIn: number }) {
         ) : (
           <>
             <span className="text-neon-cyan">{checkedIn}</span> in the hat ·
-            red rover draft Tuesday noon
+            red rover draft{" "}
+            <span className="whitespace-nowrap">Tuesday 6 PM</span>
           </>
         )}
       </p>

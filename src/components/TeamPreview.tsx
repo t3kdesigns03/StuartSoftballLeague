@@ -125,7 +125,21 @@ export function TeamPreview({
     const tick = () => setNow(new Date());
     tick();
     const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
+
+    // See DrawCountdown. This matters more here: the preview/locked switch is
+    // driven off `now`, so a suspended tab can still be reshuffling a "preview"
+    // after 6 PM, when the teams are already decided.
+    const resync = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", resync);
+    window.addEventListener("pageshow", resync);
+
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", resync);
+      window.removeEventListener("pageshow", resync);
+    };
   }, []);
 
   const locked = now ? isPastCutoff(now) : false;

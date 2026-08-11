@@ -6,14 +6,14 @@ import { pickTeamNames } from "../../src/lib/teamNames";
 import type { Gender } from "../../src/lib/types";
 
 /**
- * Auto-publish the weekly draw just after Tuesday noon, league time.
+ * Auto-publish the weekly draw just after Tuesday 6 PM, league time.
  *
- * Why this exists: the public page already *locks* at noon and every visitor
- * computes the same teams from a seeded draw, so people can glance at lunch and
- * know. But that lock lives only in the browser — nothing is written down. This
- * function persists the same draw to `team_draws` so it becomes real history,
- * scores have something to attach to, and the teams survive even if the roster
- * changes later.
+ * Why this exists: the public page already *locks* at 6 PM and every visitor
+ * computes the same teams from a seeded draw, so anyone loading the page sees
+ * the same answer. But that lock lives only in the browser — nothing is written
+ * down. This function persists the same draw to `team_draws` so it becomes real
+ * history, scores have something to attach to, and the teams survive even if
+ * the roster changes later.
  *
  * Guarantees:
  *  - **Never overrides a manual publish.** If the commissioner already pressed
@@ -23,18 +23,26 @@ import type { Gender } from "../../src/lib/types";
  *    frozen roster, so the persisted teams are the ones people already read.
  *
  * Scheduling: cron has no timezone, and Iowa moves between CDT (UTC-5) and CST
- * (UTC-6). We fire at both 17:05 and 18:05 UTC on Tuesdays and let the function
- * decide whether it is actually just past noon locally. One of the two is
- * always right; the other exits immediately.
+ * (UTC-6). Tuesday 18:00 local is 23:00 UTC Tuesday under CDT but 00:00 UTC
+ * *Wednesday* under CST, so the schedule has to span both UTC days:
+ *
+ *   23:05 UTC Tue -> 18:05 CDT Tue  (summer: the real run)
+ *   00:05 UTC Wed -> 18:05 CST Tue  (winter: the real run)
+ *   00:05 UTC Tue -> 18:05 CST Mon  (winter decoy — wrong day)
+ *   23:05 UTC Wed -> 18:05 CDT Wed  (summer decoy — wrong day)
+ *
+ * Because two of the four firings land on hour 18 of the *wrong* local day, the
+ * guard below checks local weekday as well as local hour. Exactly one firing a
+ * week survives; the other three exit immediately.
  */
 // TEMPORARY FNL: this week is a rained-out reschedule to Friday Night Lights,
-// but this cron is deliberately left Tuesday-only and its noon guard unchanged
+// but this cron is deliberately left Tuesday-only and its 6 PM guard unchanged
 // — do NOT retarget it to Friday. For this one week the commissioner will
 // manually Generate + Publish teams after the Friday 2 PM lock. The normal
 // Tuesday auto-publish path resumes automatically once FRIDAY_NIGHT_LIGHTS is
 // flipped back off in src/lib/cutoff.ts; nothing here needs to change to revert.
 export const config = {
-  schedule: "5 17,18 * * 2",
+  schedule: "5 23,0 * * 2,3",
 };
 
 type SignupRow = {
@@ -47,14 +55,20 @@ type SignupRow = {
   partner_name: string | null;
 };
 
-/** Wall-clock hour in the league's timezone. */
-function leagueHour(date: Date): number {
+/** Wall-clock weekday (0 = Sun) and hour in the league's timezone. */
+function leagueDayHour(date: Date): { day: number; hour: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: LEAGUE_TIMEZONE,
+    weekday: "short",
     hour: "numeric",
     hour12: false,
   }).formatToParts(date);
-  return Number(parts.find((p) => p.type === "hour")?.value ?? -1) % 24;
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return {
+    day: days.indexOf(get("weekday") ?? ""),
+    hour: Number(get("hour") ?? -1) % 24,
+  };
 }
 
 function lockSeed(weekId: string, signups: readonly SignupRow[]): number {
@@ -68,11 +82,15 @@ function lockSeed(weekId: string, signups: readonly SignupRow[]): number {
 export default async function handler() {
   const now = new Date();
 
-  // Only the run that lands in the noon hour locally should do anything.
-  const hour = leagueHour(now);
-  if (hour !== 12) {
+  // Only the run that lands in the 6 PM hour on Tuesday locally should do
+  // anything. Day matters as much as hour: the DST-spanning schedule also fires
+  // at 18:00 local on Monday (CST) and Wednesday (CDT).
+  const { day, hour } = leagueDayHour(now);
+  if (day !== 2 || hour !== 18) {
     return new Response(
-      JSON.stringify({ skipped: `local hour is ${hour}, not 12` }),
+      JSON.stringify({
+        skipped: `local time is day ${day} hour ${hour}, not Tuesday 18`,
+      }),
       { status: 200 },
     );
   }
@@ -121,7 +139,7 @@ export default async function handler() {
 
   // --- the frozen roster ---------------------------------------------------
   // Everyone who checked in before this moment. The function runs a few minutes
-  // past noon, so `now` is effectively the cutoff instant.
+  // past 6 PM, so `now` is effectively the cutoff instant.
   const { data: rows, error: signupError } = await db
     .from("signups_public")
     .select("*")
@@ -135,7 +153,7 @@ export default async function handler() {
   }
 
   const cutoff = new Date(now);
-  cutoff.setUTCMinutes(0, 0, 0); // top of the noon hour, locally
+  cutoff.setUTCMinutes(0, 0, 0); // top of the 6 PM hour, locally
 
   const all = (rows ?? []) as SignupRow[];
   const onTime = all.filter(
@@ -165,7 +183,7 @@ export default async function handler() {
   teams[0].name = nameA;
   teams[1].name = nameB;
   // Drawn from the same seeded sequence, in the same order, as the browser —
-  // so the dugouts we persist are the ones people already read at lunch.
+  // so the dugouts we persist are the ones people already read.
   const homeIndex = rand() < 0.5 ? 0 : 1;
 
   const payload = teams.map((team, index) => ({

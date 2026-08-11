@@ -105,13 +105,13 @@ if (!nameOk) fails++;
 
 // --- 8. a straggler after the cutoff must NOT change the locked draw ------
 {
-  const CUT = new Date("2026-07-28T17:00:00Z"); // Tue 12:00 CDT
+  const CUT = new Date("2026-07-28T23:00:00Z"); // Tue 18:00 CDT
   const onTime = roster.map((p,i) => ({...p, created_at: new Date(CUT.getTime() - (i+1)*3600e3).toISOString()}));
   const before = fingerprint(buildDraw(
     rosterAtCutoff(onTime, CUT),
     T.seededRand(lockSeed(week, rosterAtCutoff(onTime, CUT)))));
 
-  // three people wander in at 15:00, 16:30 and 18:00 local
+  // three people wander in at 21:00, 22:30 and midnight local
   const late = [...onTime,
     {...mk("Late One","guy"),   created_at: new Date(CUT.getTime()+3*3600e3).toISOString()},
     {...mk("Late Two","girl"),  created_at: new Date(CUT.getTime()+4.5*3600e3).toISOString()},

@@ -115,7 +115,8 @@ export function SignupForm({ weekId, signups = [], onSignedUp }: Props) {
         </span>
       </h2>
       <p className="text-starlight-dim mt-1.5 text-sm">
-        Add your name by Tuesday noon to get on a team.
+        Add your name by <span className="whitespace-nowrap">Tuesday 6 PM</span>{" "}
+        to get on a team.
       </p>
 
       <div className="mt-6 space-y-6">

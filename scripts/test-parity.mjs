@@ -1,5 +1,5 @@
 // The browser locks a draw client-side; the cron persists one server-side.
-// If those two ever disagree, people read one set of teams at lunch and find a
+// If those two ever disagree, people read one set of teams before the game and find a
 // different set posted. This asserts they are byte-identical.
 import { readFileSync } from "node:fs";
 import ts from "typescript";
@@ -11,7 +11,7 @@ const load = async (p) => {
 const T = await load("src/lib/teams.ts");
 const N = await load("src/lib/teamNames.ts");
 
-const CUT = new Date("2026-07-28T17:00:00Z"); // Tue 12:00 CDT
+const CUT = new Date("2026-07-28T23:00:00Z"); // Tue 18:00 CDT
 const mk = (n,g,t,partner=null) => ({id:n,player_id:n,name:n,gender:g,partner_name:partner,
   created_at:new Date(CUT.getTime()-t*3600e3).toISOString(), week_id:"w"});
 const roster = [

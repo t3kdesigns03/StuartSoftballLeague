@@ -137,7 +137,7 @@ rendering. All text files are UTF-8.
 - **Batting order** spreads the minority gender evenly through the majority
   (rule 11 wants alternation "as much as possible"). Guy-guy-girl is acceptable
   when counts force it. Not optimised beyond even spacing — deliberately.
-- **The cutoff is soft.** Tuesday 12:00 `America/Chicago`. It changes UI
+- **The cutoff is soft.** Tuesday 18:00 (6 PM) `America/Chicago`. It changes UI
   emphasis and nothing else. Never hard-lock publishing on a clock: a wrong
   timezone or a dead clock would leave the commissioner unable to post teams on
   game night, discovered at the worst possible moment.

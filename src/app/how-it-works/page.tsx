@@ -5,14 +5,14 @@ import { ContentPage, ContentSection } from "@/components/ContentPage";
 export const metadata: Metadata = {
   title: "How the draft works · Stuart Softball League '26",
   description:
-    "Red rover draft, every week. Check in by Tuesday noon, teams are drawn fresh, and you'll know your lineup before first pitch.",
+    "Red rover draft, every week. Check in by Tuesday 6 PM, teams are drawn fresh, and you'll know your lineup before first pitch.",
 };
 
 const STEPS = [
   {
     n: "01",
     title: "Check in each week",
-    body: "Add your name on the main page any time before Tuesday at noon. Every week is its own check-in — being on the roster doesn't automatically put you in a game, so tell us you're coming.",
+    body: "Add your name on the main page any time before Tuesday at 6 PM. Every week is its own check-in — being on the roster doesn't automatically put you in a game, so tell us you're coming.",
   },
   {
     n: "02",
