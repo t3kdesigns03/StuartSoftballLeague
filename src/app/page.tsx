@@ -43,7 +43,7 @@ export default function HomePage() {
         Renders nothing at all while the feature flag is off. Sits above the
         signup grid so the CTA and the opt-in it links to read as one flow.
       */}
-      <BonusBallPanel bonus={bonus} />
+      <BonusBallPanel bonus={bonus} signups={signups} />
 
       <div
         className={`grid gap-5 sm:gap-6 md:grid-cols-2 md:items-start ${

@@ -130,8 +130,9 @@ export function SignupForm({
 
   return (
     <form
+      id="signup"
       onSubmit={handleSubmit}
-      className="glass-panel glass-panel-hover rounded-blob p-5 sm:p-7"
+      className="glass-panel glass-panel-hover rounded-blob scroll-mt-6 p-5 sm:p-7"
     >
       <h2 className="text-starlight text-xl font-extrabold tracking-wide uppercase sm:text-2xl">
         Play this{" "}
