@@ -16,19 +16,18 @@ const POLL_MS = 12_000;
  *     page reveals the teaser everywhere without a refresh. Defaults to `false`
  *     and stays false if the column is missing, so a deploy that lands before
  *     its migration simply shows the feature off rather than erroring.
- *   - `pool`: the participant-only total + names. It is only ever populated when
- *     the server confirms this visitor is in the current week's pool (the gate
- *     lives in the bonus_pool() RPC, not here). Non-entrants get `member: false`
- *     and never see a number.
+ *   - `pool`: the current week's total + names. These are public now, so the
+ *     pool is fetched for everyone whenever the feature is on — no identity
+ *     required. `member` in the payload only says whether the name we send
+ *     matches an entrant, which drives the "you're in" badge.
  *
  * Identity with no accounts: we remember the name someone entered under in
- * localStorage and re-verify it against the server on load. If the week has
- * rolled, the server reports `member: false` and the reveal closes on its own —
- * we don't trust the local flag, only the server's answer.
+ * localStorage and send it so the server can flag `member`. If the week has
+ * rolled, `member` comes back false and the badge clears on its own.
  *
  * "Live" without a realtime leak: bonus_entries is not anon-readable, so we
- * can't subscribe to it from the browser. Instead the unlocked pool polls on an
- * interval and refetches when the tab regains focus — plenty for a $5 pool and
+ * can't subscribe to it from the browser. Instead the pool polls on an interval
+ * and refetches when the tab regains focus — plenty for a $5 pool and
  * consistent with the app's "simple and reliable" bias.
  */
 export function useBonusBall() {
@@ -55,12 +54,12 @@ export function useBonusBall() {
   }, []);
 
   const fetchPool = useCallback(async () => {
-    const name = nameRef.current;
-    if (!name) {
-      setPool(null);
-      return;
-    }
-    const { data, error } = await supabase.rpc("bonus_pool", { p_name: name });
+    // The pool is public, so we always fetch. The name (if we have one) is sent
+    // only so the server can flag `member` for the "you're in" badge; an empty
+    // string just yields member: false with the same public total + names.
+    const { data, error } = await supabase.rpc("bonus_pool", {
+      p_name: nameRef.current ?? "",
+    });
     if (!error && data) setPool(data as BonusPool);
   }, []);
 
@@ -114,13 +113,11 @@ export function useBonusBall() {
     };
   }, [fetchPool]);
 
-  // As soon as the feature is on and we have an identity, fetch immediately —
-  // then keep it fresh with a poll and on tab focus. The immediate fetch is what
-  // makes a returning member (identity from localStorage) see the live pool on
-  // load without waiting for the first poll tick, and it re-runs if the identity
-  // arrives after the flag (any mount-ordering hiccup).
+  // As soon as the feature is on, fetch the pool for everyone — then keep it
+  // fresh with a poll and on tab focus. Re-runs when the identity changes so the
+  // "you're in" badge updates right after someone joins.
   useEffect(() => {
-    if (!enabled || !entrantName) return;
+    if (!enabled) return;
 
     void fetchPool();
     const id = window.setInterval(() => void fetchPool(), POLL_MS);

@@ -155,11 +155,12 @@ rendering. All text files are UTF-8.
 - **The commissioner's published draw always wins.** The page renders
   `FinalDraw` instead of `TeamPreview` once `team_draws.published` is true. The
   preview is never the source of truth.
-- **Bonus Ball visibility is participant-only, server-side.** The total and the
-  names come only from `bonus_pool(name)`, gated on the caller being an entrant.
-  Never add a browser read of `bonus_entries` or a public count "for the teaser"
-  — a count is the total (`count × $5`), so exposing it defeats the whole point.
-  The teaser is allowed to know *only* that the flag is on.
+- **Bonus Ball total + names are public, but only through `bonus_pool()`.** When
+  the feature is on, the RPC returns the count, total and entrant names to
+  everyone; `member` in the payload is just for the "you're in" badge, not a
+  visibility gate. The `bonus_entries` table itself is still anon-unreadable —
+  don't expose the data by opening up the table; keep it flowing through the
+  shaped RPC projection.
 - **Bonus Ball entry is idempotent and flag-gated.** `enter_bonus_ball` refuses
   when the flag is off and leans on the `(week_id, player_id)` unique index with
   `on conflict do nothing`, so a re-submit or double-tap never creates a second
@@ -189,12 +190,12 @@ are protected twice: RLS has no anon policy **and** the grant is explicitly
 revoked, because Supabase grants `anon` SELECT on everything in `public` by
 default. Don't remove one assuming the other covers it.
 
-`bonus_pool(name)` is the *only* path to the pool total and entrant names, and
-it returns them **only** when the caller's name matches an entrant in the open
-week. A non-entrant gets `{ enabled, member: false }` — never a count or a name.
-That participant-only gate is the feature's whole security model; it lives in
-the RPC (server-side), never in the browser. The public `league_state` flag
-reveals only that the feature is *on*, which is all the mystery teaser needs.
+`bonus_pool(name)` is the *only* path to the pool total and entrant names. When
+the feature is on it returns them to everyone; the `name` argument only sets the
+`member` flag for the "you're in" badge. The data is public by design now, but
+the `bonus_entries` table stays anon-unreadable — the RPC is a shaped projection
+over it, never a table read. The `league_state` flag still gates whether any of
+it is shown.
 
 Everything privileged goes through `/api/admin/*`, which check the admin cookie
 and use the secret key server-side. `src/lib/supabaseAdmin.ts` imports

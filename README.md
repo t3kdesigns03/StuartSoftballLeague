@@ -189,25 +189,25 @@ arrive.
 - **The pool resets with the week.** Entries are keyed by `week_id`, so rolling
   the week just changes which week `bonus_pool()` reports on. Nothing is deleted;
   past pools stay as history.
-- **Participant-only visibility, enforced server-side.** The running total and
-  the list of names come *only* from `bonus_pool(name)`, which returns them
-  solely when the caller's name matches an entrant in the open week. Non-entrants
-  get `{ enabled, member: false }` and can never learn the total or who's in.
-  They can tell the feature is *on* (the `league_state` flag is public) — that's
-  what drives the mystery teaser — but nothing more.
+- **Public total + names, through the RPC only.** When the feature is on,
+  `bonus_pool(name)` returns the running total and the list of entrants to
+  everyone. The `name` argument only sets a `member` flag so the UI can show a
+  "you're in" badge — it doesn't gate what comes back. The `bonus_entries` table
+  is still not anon-readable; the RPC is a shaped projection over it, so the data
+  is exposed deliberately and nothing else on the table leaks.
 - **Same double-lock as the roster.** The browser has no direct read or write on
   `bonus_entries`: RLS has no anon policy **and** the grant is revoked. The only
   ways in are the two `security definer` RPCs (`enter_bonus_ball`, `bonus_pool`)
   and the admin route using the secret key.
 - **"Live" without a realtime leak.** Because `bonus_entries` isn't anon-readable
-  it can't be subscribed to from the browser, so the unlocked pool polls every
-  ~12s and refetches on tab focus. The flag itself flips live over the existing
-  `league_state` realtime channel, so enabling it reveals the teaser everywhere
-  without a refresh.
+  it can't be subscribed to from the browser, so the pool polls every ~12s and
+  refetches on tab focus for everyone while the feature is on. The flag itself
+  flips live over the existing `league_state` realtime channel, so enabling it
+  shows the pool everywhere without a refresh.
 - **Identity with no accounts.** The name someone enters under is remembered in
-  `localStorage` and re-verified against the server on load. If the week has
-  rolled, the server reports `member: false` and the reveal closes on its own —
-  the local flag is never trusted, only the server's answer.
+  `localStorage` and sent so the server can flag `member` for the "you're in"
+  badge. If the week has rolled, `member` comes back false and the badge clears —
+  the pool itself is public, so it shows regardless.
 
 #### Turning it on
 
@@ -260,8 +260,8 @@ policy, *and* the grant is explicitly revoked. Supabase grants `anon` SELECT on
 everything in `public` by default, so without that revoke, disabling RLS on the
 table for even a moment would expose the data. Both locks are in `schema.sql`;
 don't remove one assuming the other has it covered. The bonus-pool total and
-names reach the browser only through `bonus_pool()`, which returns them solely
-to a caller who is themselves in the pool.
+names reach the browser only through `bonus_pool()` — a shaped projection over
+the table. That data is public now, but the table itself still isn't readable.
 
 ---
 

@@ -45,18 +45,16 @@ export const SEASON_FEE = 20;
 export const BONUS_ENTRY_FEE = 5;
 
 /**
- * The shape bonus_pool() returns — deliberately narrow. The count, total and
- * names are present ONLY when the caller is a member of the current week's pool;
- * everyone else gets at most { enabled, member: false } and can learn nothing
- * about the size of the pool or who is in it. The gate is enforced server-side
- * in the RPC, not here.
+ * The shape bonus_pool() returns. When the feature is on, the count, total and
+ * names are public — everyone gets them. `member` only reports whether the name
+ * passed is one of the entrants, so the UI can show a "you're in" badge; it no
+ * longer gates what comes back.
  */
 export type BonusPool =
   | { enabled: false }
-  | { enabled: true; member: false }
   | {
       enabled: true;
-      member: true;
+      member: boolean;
       count: number;
       total_cents: number;
       names: string[];

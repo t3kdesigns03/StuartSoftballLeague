@@ -356,17 +356,16 @@ exception when duplicate_object then null; end $$;
 --   - the pool resets with the week (entries are keyed by week_id; rolling the
 --     week simply changes which week bonus_pool() reports on — nothing is
 --     deleted, so past pools survive as history)
---   - the running total and the list of entrants are visible ONLY to people who
---     are themselves in the current week's pool. Non-entrants can learn that the
---     feature is ON (the league_state flag is public) but never the total or the
---     names — that gate is enforced in bonus_pool() below, server-side, not in
---     the browser.
+--   - the running total and the list of entrants are public: anyone can see how
+--     much is in the pool and who has joined (via bonus_pool() below). What is
+--     still private is the raw table itself.
 --
 -- Access model mirrors `players`: the browser gets NO direct read or write on
 -- bonus_entries. Both the RLS policy (none) and the table grant (revoked) deny
 -- anon, so the only ways in are the two SECURITY DEFINER functions here and the
 -- admin routes using the secret key. Two independent locks, exactly like the
--- roster table.
+-- roster table. The names/total are exposed deliberately, and only through the
+-- shaped bonus_pool() projection — never by opening up the table.
 -- ============================================================================
 create table if not exists public.bonus_entries (
   id         uuid        primary key default gen_random_uuid(),
@@ -441,17 +440,18 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- bonus_pool() — the participant-only view of the current week's pool.
+-- bonus_pool() — the current week's pool, readable by anyone.
 --
--- Returns a small JSON object. The gate is the whole point: the total and the
--- names are included ONLY when the caller proves they are in this week's pool by
--- passing a name that matches an entrant. Everyone else gets { enabled, member:
--- false } and learns nothing about who is in or how much is in it.
+-- The total and the names are public: when the feature is on, every caller gets
+-- the head count, the running total and the list of entrants. `member` still
+-- reports whether the name passed is one of the entrants, purely so the UI can
+-- show a "you're in" badge and remember an identity — it no longer gates what
+-- is returned. The base table stays anon-unreadable; this RPC remains the only
+-- way the browser reaches the data.
 --
---   feature off      -> { "enabled": false }
---   on, not an entrant -> { "enabled": true, "member": false }
---   on, an entrant   -> { "enabled": true, "member": true, "count": N,
---                          "total_cents": N*500, "names": [ ... ] }
+--   feature off -> { "enabled": false }
+--   feature on  -> { "enabled": true, "member": <bool>, "count": N,
+--                    "total_cents": N*500, "names": [ ... ] }
 -- ---------------------------------------------------------------------------
 create or replace function public.bonus_pool(p_name text)
 returns jsonb
@@ -475,6 +475,7 @@ begin
     return jsonb_build_object('enabled', false);
   end if;
 
+  -- Still computed, but only for the "you're in" badge — not a visibility gate.
   v_member := exists (
     select 1
       from public.bonus_entries b
@@ -484,10 +485,7 @@ begin
        and v_name <> ''
   );
 
-  if not v_member then
-    return jsonb_build_object('enabled', true, 'member', false);
-  end if;
-
+  -- The total and names are returned to everyone now.
   select count(*),
          coalesce(
            jsonb_agg(p.name order by b.created_at),
@@ -500,7 +498,7 @@ begin
 
   return jsonb_build_object(
     'enabled', true,
-    'member', true,
+    'member', v_member,
     'count', v_count,
     'total_cents', v_count * 500,
     'names', v_names
