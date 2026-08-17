@@ -87,7 +87,7 @@ export function DrawCountdown({ checkedIn }: { checkedIn: number }) {
           <>
             <span className="text-neon-cyan">{checkedIn}</span> in the hat ·
             red rover draft{" "}
-            <span className="whitespace-nowrap">Tuesday 6 PM</span>
+            <span className="whitespace-nowrap">Friday 7 PM</span>
           </>
         )}
       </p>

@@ -1,8 +1,9 @@
+import { LightsToggle } from "@/components/LightsToggle";
 import { SoftballIcon } from "@/components/SoftballIcon";
 
 /**
  * Site header. With no `subtitle` it renders the league's headline detail —
- * coed, Tuesdays, and first pitch at 6:30 — with the time given real emphasis,
+ * coed, Fridays, and first pitch at 7:30 — with the time given real emphasis,
  * since that is the thing people actually need to know. Inner pages pass their
  * own plain-text subtitle instead.
  */
@@ -38,7 +39,7 @@ export function Header({ subtitle }: { subtitle?: string }) {
         ) : (
           <div className="mt-3 flex flex-col items-center gap-2.5">
             <p className="text-neon-cyan/85 text-[0.68rem] font-bold tracking-[0.28em] uppercase drop-shadow-[0_0_10px_rgba(0,240,255,0.5)] sm:text-xs">
-              Adult coed &middot; Sandlot Tuesdays
+              Adult coed &middot; Sandlot Fridays
             </p>
 
             <p className="flex flex-wrap items-baseline justify-center gap-x-2.5 gap-y-1">
@@ -52,9 +53,11 @@ export function Header({ subtitle }: { subtitle?: string }) {
                     "0 0 14px rgba(240,255,0,0.75), 0 0 38px rgba(240,255,0,0.4)",
                 }}
               >
-                6:30 PM
+                7:30 PM
               </span>
             </p>
+
+            <LightsToggle />
           </div>
         )}
       </div>

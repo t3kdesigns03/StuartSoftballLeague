@@ -128,7 +128,7 @@ export function TeamPreview({
 
     // See DrawCountdown. This matters more here: the preview/locked switch is
     // driven off `now`, so a suspended tab can still be reshuffling a "preview"
-    // after 6 PM, when the teams are already decided.
+    // after 7 PM, when the teams are already decided.
     const resync = () => {
       if (document.visibilityState === "visible") tick();
     };

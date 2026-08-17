@@ -180,6 +180,90 @@ body {
 }
 
 /* --------------------------------------------------------------------------
+   Friday Night Lights — the "Turn the lights on" toggle
+   LightsToggle.tsx sets `.lights-on` on <html>; everything here reacts to it.
+   It is all compositor work (opacity + one-shot flicker + static box-shadows),
+   no new rAF loop, so it stays inside the background rendering budget.
+   -------------------------------------------------------------------------- */
+
+/* Stadium floodlight wash. Sits above the cosmic background (z-0) and below the
+   content layer (z-10 in layout.tsx), so it floods the night sky without
+   washing out the text on top of it. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  background:
+    radial-gradient(
+      65% 55% at 16% -10%,
+      rgba(255, 247, 220, 0.55) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      65% 55% at 84% -10%,
+      rgba(214, 246, 255, 0.5) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      140% 100% at 50% -20%,
+      rgba(255, 240, 205, 0.16) 0%,
+      transparent 60%
+    );
+  mix-blend-mode: screen;
+}
+
+html.lights-on body::after {
+  opacity: 1;
+  animation: lights-flicker 0.85s ease-out both;
+}
+
+@keyframes lights-flicker {
+  0% {
+    opacity: 0;
+  }
+  9% {
+    opacity: 0.75;
+  }
+  14% {
+    opacity: 0.2;
+  }
+  22% {
+    opacity: 0.95;
+  }
+  30% {
+    opacity: 0.4;
+  }
+  42%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Under the lights the neon rigs burn brighter. */
+html.lights-on .glass-panel {
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 24px 60px -20px rgba(0, 0, 0, 0.95),
+    0 0 90px -18px rgba(0, 240, 255, 0.6);
+}
+
+.text-glow-title {
+  transition: filter 0.55s ease;
+}
+
+html.lights-on .text-glow-title {
+  filter: brightness(1.12) saturate(1.12)
+    drop-shadow(0 0 22px rgba(0, 240, 255, 0.7))
+    drop-shadow(0 0 60px rgba(176, 0, 255, 0.55));
+}
+
+/* --------------------------------------------------------------------------
    Accessibility — kill all ambient motion for those who ask for it
    -------------------------------------------------------------------------- */
 

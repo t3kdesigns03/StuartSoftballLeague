@@ -6,7 +6,7 @@ import "./globals.css";
 
 const SITE_URL = "https://ssl.t3kdesigns.app";
 const DESCRIPTION =
-  "Check in for this week's Stuart Softball League game. Coed sandlot Tuesdays at 6:30, under the stars.";
+  "Check in for this week's Stuart Softball League game. Coed sandlot Fridays at 7:30, under the lights.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Stuart Softball League '26 — coed sandlot Tuesdays at 6:30 PM",
+        alt: "Stuart Softball League '26 — coed sandlot Fridays at 7:30 PM",
       },
     ],
   },

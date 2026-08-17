@@ -13,7 +13,7 @@ type Rule = { n: number; title?: string; body: string };
 const RULES: Rule[] = [
   {
     n: 1,
-    body: "All games are played at Jim Kloewer Field @ Stuart Sports Complex. First pitch is 6:30 PM, with a 15-minute warm up prior to each game.",
+    body: "All games are played at Jim Kloewer Field @ Stuart Sports Complex. First pitch is 7:30 PM, with a 15-minute warm up prior to each game.",
   },
   {
     n: 2,
@@ -125,7 +125,7 @@ export default function RulesPage() {
     <ContentPage
       eyebrow="Stuart Softball League '26"
       title="League rules"
-      intro="Coed sandlot Tuesdays at Jim Kloewer Field. Must be 18 years old to play."
+      intro="Coed sandlot Fridays at Jim Kloewer Field. Must be 18 years old to play."
     >
       <ContentSection title="Before you read on">
         <p>
@@ -136,7 +136,7 @@ export default function RulesPage() {
           >
             how the draft works
           </a>
-          . Two teams, two randomly drawn captains, new rosters each Tuesday.
+          . Two teams, two randomly drawn captains, new rosters each Friday.
         </p>
         <p>
           All players must be 18 years or older and have a signed{" "}

@@ -29,7 +29,7 @@ export function FinalDraw({ draw }: { draw: TeamDraw | null }) {
           id="final-draw-heading"
           className="text-glow-title mt-1.5 text-2xl font-black tracking-tight uppercase sm:text-3xl"
         >
-          Tuesday&rsquo;s Teams
+          Friday&rsquo;s Teams
         </h2>
         {draw.published_at && (
           <p className="text-starlight-faint mt-1.5 text-[0.68rem] font-bold tracking-[0.2em] uppercase">

@@ -141,7 +141,7 @@ export function SignupForm({
         </span>
       </h2>
       <p className="text-starlight-dim mt-1.5 text-sm">
-        Add your name by <span className="whitespace-nowrap">Tuesday 6 PM</span>{" "}
+        Add your name by <span className="whitespace-nowrap">Friday 7 PM</span>{" "}
         to get on a team.
       </p>
 
@@ -326,7 +326,7 @@ export function SignupForm({
             role="status"
             className="text-neon-green animate-pop-in rounded-xl border border-[#39ff14]/40 bg-[#39ff14]/10 px-4 py-3 text-sm font-bold shadow-[0_0_28px_-10px_rgba(57,255,20,0.9)]"
           >
-            You&rsquo;re in! See you Tuesday. ⚾
+            You&rsquo;re in! See you Friday. ⚾
           </p>
         )}
 

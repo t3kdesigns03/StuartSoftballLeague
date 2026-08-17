@@ -1,8 +1,8 @@
 /**
  * Check-in cutoff.
  *
- * Tuesday 6:00 PM, league local time. Check-in stays open until then; the teams
- * are decided at 6 PM. Games follow at 6:30.
+ * Friday 7:00 PM, league local time. Check-in stays open until then; the teams
+ * are decided at 7 PM. Games follow at 7:30.
  *
  * This is a *soft* deadline. Nothing is locked when it passes — the admin can
  * still draw and publish whenever they like, and stragglers can still check in.
@@ -12,9 +12,9 @@
 
 export const LEAGUE_TIMEZONE = "America/Chicago";
 
-export const CUTOFF_LABEL = "Tuesday 6 PM";
-const CUTOFF_DAY = 2; // 2 = Tuesday
-const CUTOFF_HOUR = 18; // 18:00 — 6 PM
+export const CUTOFF_LABEL = "Friday 7 PM";
+const CUTOFF_DAY = 5; // 5 = Friday
+const CUTOFF_HOUR = 19; // 19:00 — 7 PM
 
 /** Wall-clock parts of `date` as seen in the league's timezone. */
 function leagueParts(date: Date) {
@@ -66,7 +66,7 @@ export function isPastCutoff(now = new Date()): boolean {
  *
  * Used to freeze the locked roster: only check-ins recorded *before* this
  * moment count toward the official draw. Without it a straggler adding their
- * name at 6:20 would change the lock seed and silently re-roll teams that had
+ * name at 7:20 would change the lock seed and silently re-roll teams that had
  * already been decided.
  */
 export function currentCutoffInstant(now = new Date()): Date {
